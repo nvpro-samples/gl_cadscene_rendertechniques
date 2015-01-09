@@ -103,7 +103,7 @@ materials:      66
 nodes:        5004
 objects:      2497
 
-token/glstream complexities:
+tokenbuffer/glstream complexities:
 type: solid              materialgroups | drawcall individual
 commandsize:                     347292 | 1301692
 statetoggles:                         1 | 1
@@ -125,13 +125,15 @@ GL_UNIFORM_ADDRESS_COMMAND_NV:    15457 |   20036
 GL_POLYGON_OFFSET_COMMAND_NV:         1 |       1
 ```
 
+As one can see from the statistics the key difference is the number of drawcalls for the hardware:
+- **materialgroups**: ~ 10 000 drawcalls (inner two columns)
+- **drawcall individual**: ~ 70 000 drawcalls (rightmost two columns)
 
 *shademode: solid*
 
 renderer | GPU time | CPU time | GPU time | CPU time (microseconds)
 ------------ | ------------- | ------------- | ------------- | -------------
-strategy | **material-** | **-groups** | **drawcall-** | **-individual**
------------- | ------------- | ------------- | ------------- | -------------
+**strategy** | **material-** | **-groups** | **drawcall-** | **-individual**
 ubosub | 1550 | 1870 |  6000 | 7420
 uborange | 1010| 1890 | 3720 | 7660
 uborange_bindless | 1010 | 1200 | 2560 | 4900
@@ -153,8 +155,7 @@ is manipulated through an immediate vertex attribute to toggle between lit/unlit
 
 renderer | GPU time | CPU time | GPU time | CPU time (microseconds)
 ------------ | ------------- | ------------- | ------------- | -------------
-strategy | **material-** | **-groups** | **drawcall-** | **-individual**
------------- | ------------- | ------------- | ------------- | -------------
+**strategy** | **material-** | **-groups** | **drawcall-** | **-individual**
 ubosub | 2890 | 3350 | 13000 | 15000 | 
 uborange | 2150 | 3700 | 12500 | 15200 | 
 uborange_bindless | 2150 | 2640 | 8300 | 10000
