@@ -208,7 +208,7 @@ The principle setup of the sample is in this main file, however most of the inte
 
 - Sample::think - prepares the frame and calls the renderer's draw function
 
-#### renderer*.* and tokenbase.*
+#### renderer... and tokenbase...
 Each renderer has its own file and is derived from the **Renderer** class in *renderer.hpp*
 
 - Renderer::init - some renderers may allocate extra buffers or create their own data structures for the scene.
@@ -217,20 +217,20 @@ Each renderer has its own file and is derived from the **Renderer** class in *re
 
 The renderers may have additional functions, especially the "token" renderers using NV_command_list or "indexedmdi" must create their own scene representation.
 
-#### cadscene*.*
+#### cadscene...
 The "csf" (cadscene file) format is a simple binary format that encodes a scene as its typical for CAD. It closely matches the description at the beginning of the readme. It is not very sophisticated and meant for demo purposes.
 
 > *Note*: The **geforce.csf.gz** assembly binary file that ships with this sample **may NOT be redistributed.**
 
-#### nodetree*.* and transform*.*
+#### nodetree... and transform...
 Implement the matrix hierarchy updates as described in the "model explosion view" section.
 
-#### cull*.* and scan*.*
+#### cull... and scan...
 All files related to culling, best is to refer to the [gl occlusion cullling](https://github.com/nvpro-samples/gl_occlusion_cullling) sample, as it leverages the same system and focuses on just that topic. 
 
 *renderertokensortcull.cpp* implements *RendererCullSortToken::CullJobToken::resultFromBits* which contains the details how the occlusion results are handled in this sample. The implementation uses the "raster" "temporal" approach.
 
-#### statesystem.*  nvtoken.* and nvcommandlist.*
+#### statesystem... nvtoken... and nvcommandlist...
 These files contain helpers when using the NV_command_list extension, please check [gl commandlist basic](https://github.com/nvpro-samples/gl_commandlist_basic) for a smaller sample.
 
 ### Building
@@ -241,7 +241,7 @@ Ideally clone this and other interesting [nvpro-samples](https://github.com/nvpr
 [gl occlusion cullling](https://github.com/nvpro-samples/gl_occlusion_cullling) also uses the occlusion system of this sample, but in a simpler usage scenario.
 
 When using classic scenegraphs, there is typically a lot of overhead in traversing the scene, it is highly recommended to use simpler representations for actual rendering. Flattened hierarchy, arrays... memory friendly data structures, data-oriented design.
-If you are still working with a classic scenegraph then [nvpro-pipeline](https://github.com/nvpro-pipeline/pipeline) may provide some acceleration strategies to avoid full scenegraph traversal.
+If you are still working with a classic scenegraph then [nvpro-pipeline](https://github.com/nvpro-pipeline/pipeline) may provide some acceleration strategies to avoid full scenegraph traversal, of which some are also described in this [GTC 2013 presentation](http://on-demand.gputechconf.com/gtc/2013/presentations/S3032-Advanced-Scenegraph-Rendering-Pipeline.pdf).
 
 ```
     Copyright (c) 2014, NVIDIA CORPORATION. All rights reserved.
