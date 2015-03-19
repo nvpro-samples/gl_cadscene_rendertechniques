@@ -5,7 +5,7 @@ The principle OpenGL mechanisms hat are used here are described in the presentat
 
 The sample makes use of multiple OpenGL 4 core features, such as **ARB_multi_draw_indirect**, but also showcases OpenGL 3 style rendering techniques.
 
-There is also several techniques built around the upcoming **NV_command_list** extension. Please refer to [gl commandlist basic](https://github.com/nvpro-samples/gl_commandlist_basic) for an introduction on NV_command_list.
+There is also several techniques built around the **NV_command_list** extension. Please refer to [gl commandlist basic](https://github.com/nvpro-samples/gl_commandlist_basic) for an introduction on NV_command_list.
 
 > Note: This is just a sample to illustrates several techniques and possibilities how to approach rendering, its purpose is not to provide production level, highly optimized implementations.
 
