@@ -34,6 +34,10 @@
 using namespace nv_math;
 #include "common.h"
 
+#define USE_VERTEX_ASSIGNS  (!USE_BASEINSTANCE)
+#define USE_GPU_INDIRECT    1
+#define USE_CPU_INDIRECT    (!USE_GPU_INDIRECT)
+
 namespace csfviewer
 {
   //////////////////////////////////////////////////////////////////////////
@@ -81,27 +85,51 @@ namespace csfviewer
         return 3;
       }
     };
-
-  private:
-    struct ObjectExtras {
-      GLuint    assignGL;
-      GLuint    indirectGL;
-      GLuint64  assignADDR;
-      GLuint64  indirectADDR;
-
-      size_t    offsetSolid;
-      size_t    offsetWire;
-
-      int       numSolid;
-      int       numWire;
-
-      int       numAssignsSolid;
-      int       numAssignsWire;
-
-      ObjectExtras() : assignGL(0) , indirectGL(0) {}
+    class TypeSort : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return true;
+      }
+      const char* name() const
+      {
+        return "indexedmdi_sorted";
+      }
+      Renderer* create() const
+      {
+        RendererIndexedMDI* renderer = new RendererIndexedMDI();
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 3;
+      }
+    };
+    class TypeSortVbum : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return !!GLEW_NV_vertex_buffer_unified_memory;
+      }
+      const char* name() const
+      {
+        return "indexedmdi_sorted_bindless";
+      }
+      Renderer* create() const
+      {
+        RendererIndexedMDI* renderer = new RendererIndexedMDI();
+        renderer->m_vbum = true;
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 3;
+      }
     };
 
-
+  private:
     struct DrawIndirectGL {
       GLuint count;
       GLuint instanceCount;
@@ -121,240 +149,208 @@ namespace csfviewer
       DrawIndirectGL  cmd;
     };
 
+    struct ShadeCommand {
+      std::vector<IndexedCommand> indirects;
+      std::vector<int>      assigns;
+
+      std::vector<size_t>   sizes;
+      std::vector<size_t>   offsets;
+      std::vector<int>      geometries;
+      std::vector<bool>     solids;
+
+#if USE_GPU_INDIRECT
+      GLuint    indirectGL;
+      GLuint64  indirectADDR;
+#endif
+
+#if USE_VERTEX_ASSIGNS
+      GLuint    assignGL;
+      GLuint64  assignADDR;
+#endif
+
+      ShadeCommand() {
+#if USE_GPU_INDIRECT
+        indirectGL = 0;
+#endif
+#if USE_VERTEX_ASSIGNS
+        assignGL = 0;
+#endif
+      }
+    };
+
   public:
-    void init(const CadScene* __restrict scene, const Resources& resources);
+    void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
     void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
 
     bool                        m_vbum;
+    bool                        m_sort;
 
 
     RendererIndexedMDI()
       : m_vbum(false) 
+      , m_sort(false)
     {
 
     }
 
   private:
 
-    std::vector<ObjectExtras>   m_xtras;
-
-    void FillCached( const CadScene::DrawRangeCache &cache, const CadScene::Object& obj, std::vector<int> &assigns, std::vector<IndexedCommand> &commands ) 
+    ShadeCommand    m_shades[NUM_SHADES];
+    
+    GLuint packBaseInstance( int matrixIndex, int materialIndex )
     {
-      int draws = 0;
-      int numAssigns = int(assigns.size())/2;
-
-      for (size_t s = 0; s < cache.state.size(); s++)
-      {
-        const CadScene::DrawStateInfo &state = cache.state[s];
-        // push indices
-        assigns.push_back(state.matrixIndex);
-        assigns.push_back(state.materialIndex);
-        numAssigns++;
-
-        // fill indirect
-        for (int d = 0; d < cache.stateCount[s]; d++, draws++){
-          IndexedCommand  idxcmd;
-          idxcmd.cmd.count        = cache.counts[draws];
-          idxcmd.cmd.firstIndex   = GLuint(cache.offsets[draws]/sizeof(GLuint));
-          idxcmd.cmd.baseInstance = numAssigns-1;
-          commands.push_back(idxcmd);
-        }
-      }
+      assert( materialIndex <= 0xFFF );
+      assert( matrixIndex   <= 0xFFFFF );
+      return (GLuint(matrixIndex) | (GLuint(materialIndex) << 20));
     }
 
-    void FillJoin( const CadScene::Object& obj, const CadScene::Geometry& geo, std::vector<int> &assigns, std::vector<IndexedCommand> &commands, bool solid ) 
+    void GenerateIndirects(std::vector<DrawItem>& drawItems, ShadeType shade, const CadScene* NV_RESTRICT scene, const Resources& resources )
     {
-      CadScene::DrawRange range;
-
-      // always enforce setting once per new object
       int lastMaterial = -1;
+      int lastGeometry = -1;
       int lastMatrix   = -1;
-      int numAssigns = int(assigns.size())/2;
+      bool lastSolid   = true;
 
-      for (size_t p = 0; p < obj.parts.size(); p++){
-        const CadScene::ObjectPart&   part = obj.parts[p];
-        const CadScene::GeometryPart& mesh = geo.parts[p];
+      ShadeCommand& sc = m_shades[shade];
+      sc.assigns.clear();
+      sc.indirects.clear();
 
-        if (!part.active) continue;
+      sc.sizes.clear();
+      sc.offsets.clear();
+      sc.solids.clear();
+      sc.geometries.clear();
 
-        if (part.materialIndex != lastMaterial || part.matrixIndex != lastMatrix){
-          // evict
-          if (range.count){
-            IndexedCommand  idxcmd;
-            idxcmd.cmd.count        = range.count;
-            idxcmd.cmd.firstIndex   = GLuint(range.offset/sizeof(GLuint));
-            idxcmd.cmd.baseInstance = numAssigns-1;
-            commands.push_back(idxcmd);
-          }
+      std::vector<int>& assigns = sc.assigns;
+      std::vector<IndexedCommand>& indirectStream = sc.indirects;
 
-          range = CadScene::DrawRange();
+      size_t begin = 0;
 
+      int numAssigns = 0;
+
+      for (int i = 0; i < drawItems.size(); i++){
+        const DrawItem& di = drawItems[i];
+
+        if (shade == SHADE_SOLID && !di.solid){
+          if (m_sort) break;
+          continue;
+        }
+
+        if (lastGeometry != di.geometryIndex || (shade == SHADE_SOLIDWIRE && di.solid != lastSolid)){
+          sc.offsets.push_back( begin );
+          sc.sizes.  push_back( GLsizei((indirectStream.size()-begin)) );
+          sc.solids. push_back( lastSolid );
+          sc.geometries.push_back( lastGeometry );
+
+          begin = indirectStream.size();
+        }
+
+#if USE_VERTEX_ASSIGNS
+        if (lastMatrix != di.matrixIndex || lastMaterial != di.materialIndex)
+        {
           // push indices
-          assigns.push_back(part.matrixIndex);
-          assigns.push_back(part.materialIndex);
+          assigns.push_back(di.matrixIndex);
+          assigns.push_back(di.materialIndex);
           numAssigns++;
 
-          lastMaterial = part.materialIndex;
-          lastMatrix   = part.matrixIndex;
+          lastMatrix    = di.matrixIndex;
+          lastMaterial  = di.materialIndex;
         }
+#endif
 
-        if (!range.count){
-          range.offset = solid ? mesh.indexSolid.offset : mesh.indexWire.offset;
-        }
+        IndexedCommand drawelems;
+        drawelems.cmd.count = di.range.count;
+        drawelems.cmd.firstIndex = GLuint((di.range.offset )/sizeof(GLuint));
+#if USE_VERTEX_ASSIGNS
+        drawelems.cmd.baseInstance = numAssigns - 1;
+#else
+        drawelems.cmd.baseInstance = packBaseInstance(di.matrixIndex, di.materialIndex);
+#endif
+        indirectStream.push_back(drawelems);
 
-        range.count += solid ?  mesh.indexSolid.count : mesh.indexWire.count;
+        lastGeometry = di.geometryIndex;
+        lastSolid = di.solid;
       }
 
-      // evict
-      IndexedCommand  idxcmd;
-      idxcmd.cmd.count        = range.count;
-      idxcmd.cmd.firstIndex   = GLuint(range.offset/sizeof(GLuint));
-      idxcmd.cmd.baseInstance = numAssigns-1;
-      commands.push_back(idxcmd);
-    }
-
-    void FillIndividual( const CadScene::Object& obj, const CadScene::Geometry& geo, std::vector<int> &assigns, std::vector<IndexedCommand> &commands, bool solid ) 
-    {
-      // always enforce setting once per new object
-      int lastMaterial = -1;
-      int lastMatrix   = -1;
-      int numAssigns = int(assigns.size())/2;
-      for (size_t p = 0; p < obj.parts.size(); p++){
-        const CadScene::ObjectPart&   part = obj.parts[p];
-        const CadScene::GeometryPart& mesh = geo.parts[p];
-
-        if (!part.active) continue;
-
-        if (part.materialIndex != lastMaterial || part.matrixIndex != lastMatrix){
-          // push indices
-          assigns.push_back(part.matrixIndex);
-          assigns.push_back(part.materialIndex);
-          numAssigns++;
-
-          lastMaterial = part.materialIndex;
-          lastMatrix   = part.matrixIndex;
-        }
-
-
-        IndexedCommand  idxcmd;
-        idxcmd.cmd.count        = solid ? mesh.indexSolid.count : mesh.indexWire.count;
-        idxcmd.cmd.firstIndex   = GLuint((solid ?  mesh.indexSolid.offset : mesh.indexWire.offset)/sizeof(GLuint));
-        idxcmd.cmd.baseInstance = numAssigns-1;
-        commands.push_back(idxcmd);
-      }
+      sc.offsets.push_back( begin );
+      sc.sizes.  push_back( GLsizei((indirectStream.size()-begin)) );
+      sc.solids. push_back( lastSolid );
+      sc.geometries.push_back( lastGeometry );
     }
 
   };
 
   static RendererIndexedMDI::Type s_indexed;
   static RendererIndexedMDI::TypeVbum s_indexed_vbum;
+  static RendererIndexedMDI::TypeSort s_indexedsort;
+  static RendererIndexedMDI::TypeSortVbum s_indexedsort_vbum;
 
-  void RendererIndexedMDI::init( const CadScene* __restrict scene, const Resources& resources )
+  void RendererIndexedMDI::init( const CadScene* NV_RESTRICT scene, const Resources& resources )
   {
     m_scene = scene;
+    resources.usingUboProgram(false);
 
-    m_xtras.resize(scene->m_objects.size());
+    std::vector<DrawItem> drawItems;
 
-    int vbochanges = 0;
-    int ibochanges = 0;
-    int ubochanges = 1;
-    int drawcalls  = 0;
-    int drawcmds   = 0;
+    fillDrawItems(drawItems,0,scene->m_objects.size(), true, true);
 
-    int lastGeometry = -1;
-    for (size_t i = 0; i < scene->m_objects.size(); i++){
-      ObjectExtras&  xtra = m_xtras[i];
-      const CadScene::Object& obj = scene->m_objects[i];
-      const CadScene::Geometry& geo = scene->m_geometry[obj.geometryIndex];
-
-      std::vector<int>            assigns;
-      std::vector<IndexedCommand> commands;
-
-      assigns.reserve( obj.parts.size() * 2 );
-      commands.reserve( obj.parts.size() );
-
-      if (obj.geometryIndex != lastGeometry){
-
-        vbochanges++;
-        ibochanges++;
-
-        lastGeometry = obj.geometryIndex;
-      }
-
-      vbochanges++;
-
-      if (m_strategy == STRATEGY_GROUPS){
-        FillCached(obj.cacheSolid, obj, assigns, commands);
-      }
-      else if (m_strategy == STRATEGY_JOIN) {
-        FillJoin(obj, geo, assigns, commands, true);
-      }
-      else if (m_strategy == STRATEGY_INDIVIDUAL){
-        FillIndividual(obj, geo, assigns, commands, true);
-      }
-
-      xtra.offsetSolid = 0;
-      xtra.numSolid    = int(commands.size());
-      xtra.numAssignsSolid = int(assigns.size())/2;
-
-      if (m_strategy == STRATEGY_GROUPS){
-        FillCached(obj.cacheWire, obj, assigns, commands);
-      }
-      else if (m_strategy == STRATEGY_JOIN) {
-        FillJoin(obj, geo, assigns, commands, false);
-      }
-      else if (m_strategy == STRATEGY_INDIVIDUAL){
-        FillIndividual(obj, geo, assigns, commands, false);
-      }
-
-      xtra.offsetWire = xtra.numSolid * sizeof(IndexedCommand);
-      xtra.numWire    = int(commands.size()) - xtra.numSolid;
-      xtra.numAssignsWire = int(assigns.size())/2 - xtra.numAssignsSolid;
-
-      glGenBuffers(1,&xtra.assignGL);
-      glNamedBufferStorageEXT(xtra.assignGL, assigns.size()*sizeof(GLuint), &assigns[0], 0 );
-
-      glGenBuffers(1,&xtra.indirectGL);
-      glNamedBufferStorageEXT(xtra.indirectGL, commands.size()*sizeof(IndexedCommand), &commands[0], 0 );
-
-      drawcalls++;
-      drawcmds += xtra.numSolid;
-
-      if (m_vbum){
-        glMakeNamedBufferResidentNV(xtra.assignGL,    GL_READ_ONLY);
-        glMakeNamedBufferResidentNV(xtra.indirectGL,  GL_READ_ONLY);
-        glGetNamedBufferParameterui64vNV(xtra.assignGL,   GL_BUFFER_GPU_ADDRESS_NV, &xtra.assignADDR);
-        glGetNamedBufferParameterui64vNV(xtra.indirectGL, GL_BUFFER_GPU_ADDRESS_NV, &xtra.indirectADDR);
-      }
-
+    if (m_sort){
+      std::sort(drawItems.begin(),drawItems.end(),DrawItem_compare_groups);
     }
-    printf("stats:\n");
-    printf("  vbochanges: %6d\n",vbochanges);
-    printf("  ibochanges: %6d\n",ibochanges);
-    printf("  ubochanges: %6d\n",ubochanges);
-    printf("  drawcalls : %6d\n",drawcalls);
-    printf("  drawcmds  : %6d\n",drawcmds);
-    printf("\n");
+
+    // build SC
+
+    GenerateIndirects(drawItems, SHADE_SOLID, scene, resources);
+    GenerateIndirects(drawItems, SHADE_SOLIDWIRE, scene, resources);
+
+    for (size_t i = 0; i <= SHADE_SOLIDWIRE; i++){
+      ShadeCommand& sc = m_shades[i];
+#if USE_GPU_INDIRECT
+      glGenBuffers(1,&sc.indirectGL);
+      glNamedBufferStorageEXT( sc.indirectGL, sizeof(IndexedCommand) * sc.indirects.size(), &sc.indirects[0], 0 );
+      if (m_vbum){
+        glGetNamedBufferParameterui64vNV(sc.indirectGL, GL_BUFFER_GPU_ADDRESS_NV, &sc.indirectADDR);
+        glMakeNamedBufferResidentNV(sc.indirectGL, GL_READ_ONLY);
+      }
+#endif
+#if USE_VERTEX_ASSIGNS
+      glGenBuffers(1,&sc.assignGL);
+      glNamedBufferStorageEXT( sc.assignGL, sizeof(int) * sc.assigns.size(), &sc.assigns[0], 0 );
+      if (m_vbum){
+        glGetNamedBufferParameterui64vNV(sc.assignGL, GL_BUFFER_GPU_ADDRESS_NV, &sc.assignADDR);
+        glMakeNamedBufferResidentNV(sc.assignGL, GL_READ_ONLY);
+      }
+#endif
+    }
+
+    m_shades[SHADE_SOLIDWIRE_SPLIT] = m_shades[SHADE_SOLIDWIRE];
+
   }
 
   void RendererIndexedMDI::deinit()
   {
-    for (size_t i = 0; i < m_xtras.size(); i++){
+    for (size_t i = 0; i < SHADE_SOLIDWIRE; i++){
+      ShadeCommand& sc = m_shades[i];
       if (m_vbum){
-        glMakeNamedBufferNonResidentNV(m_xtras[i].indirectGL);
-        glMakeNamedBufferNonResidentNV(m_xtras[i].assignGL);
+#if USE_GPU_INDIRECT
+        glMakeNamedBufferNonResidentNV(sc.indirectGL);
+#endif
+#if USE_VERTEX_ASSIGNS
+        glMakeNamedBufferNonResidentNV(sc.assignGL);
+#endif
       }
-      glDeleteBuffers(1,&m_xtras[i].indirectGL);
-      glDeleteBuffers(1,&m_xtras[i].assignGL);
+#if USE_GPU_INDIRECT
+      glDeleteBuffers(1,&sc.indirectGL);
+#endif
+#if USE_VERTEX_ASSIGNS
+      glDeleteBuffers(1,&sc.assignGL);
+#endif
     }
-
-    m_xtras.clear();
   }
 
   void RendererIndexedMDI::draw( ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager )
   {
-    const CadScene* __restrict scene = m_scene;
+    const CadScene* NV_RESTRICT scene = m_scene;
     bool vbum = m_vbum;
 
     scene->enableVertexFormat(VERTEX_POS,VERTEX_NORMAL);
@@ -368,16 +364,19 @@ namespace csfviewer
 
     SetWireMode(GL_FALSE);
 
+#if USE_VERTEX_ASSIGNS
     glVertexAttribIFormat(VERTEX_ASSIGNS,2,GL_INT,0);
     glVertexAttribBinding(VERTEX_ASSIGNS,1);
     glEnableVertexAttribArray(VERTEX_ASSIGNS);
     glBindVertexBuffer(1,0,0,sizeof(GLint)*2);
     glVertexBindingDivisor(1,1);
-
+#endif
     if (vbum){
       glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
       glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
+#if USE_GPU_INDIRECT
       glEnableClientState(GL_DRAW_INDIRECT_UNIFIED_NV);
+#endif
     }
     if (vbum && s_bindless_ubo){
       glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
@@ -389,56 +388,69 @@ namespace csfviewer
       glBindBufferBase(GL_UNIFORM_BUFFER, UBO_MATERIAL, scene->m_materialsGL);
     }
 
-    glBindTextures(TEX_MATRICES,1,&scene->m_matricesTexGL);
+    glBindMultiTextureEXT(GL_TEXTURE0 + TEX_MATRICES, GL_TEXTURE_BUFFER, scene->m_matricesTexGL);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
-    int lastGeometry = -1;
-    for (size_t i = 0; i < m_scene->m_objects.size(); i++){
-      const ObjectExtras& xtra = m_xtras[i];
-      const CadScene::Object& obj = scene->m_objects[i];
-      const CadScene::Geometry& geo = scene->m_geometry[obj.geometryIndex];
-
-      if (obj.geometryIndex != lastGeometry){
-
-        if (vbum){
-          glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 0,  geo.vboADDR, geo.numVertices * sizeof(CadScene::Vertex));
-          glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV,0,         geo.iboADDR, (geo.numIndexSolid+geo.numIndexWire) * sizeof(GLuint));
-        }
-        else{
-          glBindVertexBuffer(0, geo.vboGL, 0, sizeof(CadScene::Vertex));
-          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geo.iboGL);
-        }
-
-        lastGeometry = obj.geometryIndex;
-      }
-
-
+    {
+      ShadeCommand& sc = m_shades[shadetype];
       if (vbum){
-        glBufferAddressRangeNV(GL_DRAW_INDIRECT_ADDRESS_NV, 0,       xtra.indirectADDR, sizeof(IndexedCommand) * (xtra.numSolid + xtra.numWire));
-        glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 1, xtra.assignADDR, (xtra.numAssignsSolid + xtra.numAssignsWire) * sizeof(GLint) * 2);
+  #if USE_GPU_INDIRECT
+        glBufferAddressRangeNV(GL_DRAW_INDIRECT_ADDRESS_NV, 0,       sc.indirectADDR, sc.indirects.size() * sizeof(IndexedCommand) );
+  #endif
+  #if USE_VERTEX_ASSIGNS
+        glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 1, sc.assignADDR, sc.assigns.size() * sizeof(GLint));
+  #endif
       }
       else{
-        glBindVertexBuffer(1, xtra.assignGL, 0, sizeof(GLint)*2);
-        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, xtra.indirectGL);
+  #if USE_GPU_INDIRECT
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, sc.indirectGL);
+  #endif
+  #if USE_VERTEX_ASSIGNS
+        glBindVertexBuffer(1, sc.assignGL, 0, sizeof(GLint)*2);
+  #endif
       }
+  #if USE_CPU_INDIRECT
+      size_t offset = (size_t)&sc.indirects[0];
+  #else
+      size_t offset = 0;
+  #endif
 
-      if (shadetype == SHADE_SOLID || shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-        glMultiDrawElementsIndirect(GL_TRIANGLES,GL_UNSIGNED_INT, (const void*)xtra.offsetSolid, xtra.numSolid, 0);
-      }
-      if (shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-        SetWireMode(GL_TRUE);
-        glMultiDrawElementsIndirect(GL_LINES,GL_UNSIGNED_INT, (const void*)xtra.offsetWire, xtra.numWire, 0);
-        SetWireMode(GL_FALSE);
-      }
+      int lastGeometry = -1;
+      bool lastSolid  = true;
+      for (size_t i = 0; i < sc.geometries.size(); i++){
+        int geometryIndex = sc.geometries[i];
 
+        if (geometryIndex != lastGeometry){
+          const CadScene::Geometry& geo = m_scene->m_geometry[ geometryIndex ];
+          if (vbum){
+            glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 0,  geo.vboADDR, geo.numVertices * sizeof(CadScene::Vertex));
+            glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV,0,         geo.iboADDR, (geo.numIndexSolid+geo.numIndexWire) * sizeof(GLuint));
+          }
+          else{
+            glBindVertexBuffer(0, geo.vboGL, 0, sizeof(CadScene::Vertex));
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geo.iboGL);
+          }
+          lastGeometry = geometryIndex;
+        }
+
+        bool solid = sc.solids[i];
+        if (solid != lastSolid){
+          SetWireMode((!solid));
+        }
+
+        glMultiDrawElementsIndirect(solid ? GL_TRIANGLES : GL_LINES,GL_UNSIGNED_INT, (const void*)(offset + sc.offsets[i] * sizeof(IndexedCommand)), GLsizei(sc.sizes[i]), 0);
+
+        lastSolid = solid;
+      }
     }
-
+#if USE_VERTEX_ASSIGNS
     glDisableVertexAttribArray(VERTEX_ASSIGNS);
     glBindVertexBuffer(1,0,0,0);
     glVertexBindingDivisor(1,0);
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+#endif
 
-    GLuint zero = 0;
-    glBindTextures(TEX_MATRICES,1,&zero);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+    glBindMultiTextureEXT(GL_TEXTURE0 + TEX_MATRICES, GL_TEXTURE_BUFFER, 0);
 
     glBindBufferBase(GL_UNIFORM_BUFFER,UBO_SCENE, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER,UBO_MATERIAL, 0);
@@ -449,7 +461,9 @@ namespace csfviewer
     if (vbum){
       glDisableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
       glDisableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
+#if USE_GPU_INDIRECT
       glDisableClientState(GL_DRAW_INDIRECT_UNIFIED_NV);
+#endif
       if (s_bindless_ubo){
         glDisableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
       }

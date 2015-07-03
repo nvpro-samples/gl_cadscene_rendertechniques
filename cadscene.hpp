@@ -202,6 +202,7 @@ public:
   GLuint    m_matricesGL;
   GLuint64  m_matricesADDR;
   GLuint    m_matricesTexGL;
+  GLuint64  m_matricesTexGLADDR;
   GLuint    m_geometryBboxesGL;
   GLuint    m_geometryBboxesTexGL;
   GLuint    m_objectAssignsGL;

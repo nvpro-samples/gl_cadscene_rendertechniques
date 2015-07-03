@@ -80,17 +80,17 @@ namespace csfviewer
     };
 
   public:
-    void init(const CadScene* __restrict scene, const Resources& resources);
+    void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
     void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
 
   private:
 
-    static const size_t bufferSize = 1024*256;
+    static const size_t bufferSize = 1024*16;
 
     std::vector<DrawItem>       m_drawItems;
 
-    size_t GenerateTokens(NVPointerStream& tokenStream, std::vector<DrawItem>& drawItems, size_t from, ShadeType shade, const CadScene* __restrict scene, const Resources& resources )
+    size_t GenerateTokens(NVPointerStream& tokenStream, std::vector<DrawItem>& drawItems, size_t from, ShadeType shade, const CadScene* NV_RESTRICT scene, const Resources& resources )
     {
       int lastMaterial = -1;
       int lastGeometry = -1;
@@ -220,9 +220,10 @@ namespace csfviewer
   static RendererTokenStream::Type s_sorttoken;
   static RendererTokenStream::TypeEmu s_sorttoken_emu;
 
-  void RendererTokenStream::init(const CadScene* __restrict scene, const Resources& resources)
+  void RendererTokenStream::init(const CadScene* NV_RESTRICT scene, const Resources& resources)
   {
     TokenRendererBase::init(s_bindless_ubo, !!GLEW_NV_vertex_buffer_unified_memory);
+    resources.usingUboProgram(true);
 
     m_scene = scene;
 
@@ -244,7 +245,7 @@ namespace csfviewer
 
   void RendererTokenStream::draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
   {
-    const CadScene* __restrict scene = m_scene;
+    const CadScene* NV_RESTRICT scene = m_scene;
 
     // do state setup (primarily for sake of state capturing)
     scene->enableVertexFormat(VERTEX_POS,VERTEX_NORMAL);

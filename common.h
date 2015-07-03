@@ -10,6 +10,8 @@
 
 #define TEX_MATRICES  0
 
+#define USE_BASEINSTANCE  0
+
 //#define UNI_WIREFRAME 0
 
 
@@ -29,7 +31,7 @@ struct SceneData {
   vec4  wLightPos;
   
   ivec2 viewport;
-  ivec2 _pad;
+  uvec2 tboMatrices;
 };
 
 #ifdef __cplusplus
@@ -58,7 +60,13 @@ layout(std140,binding=UBO_MATRIX) uniform matrixBuffer {
   mat4 objectMatrixIT;
 } object;
 
+#extension GL_ARB_bindless_texture : enable
+#extension GL_NV_bindless_texture : enable
+#if GL_NV_bindless_texture
+#define matricesBuffer  samplerBuffer(scene.tboMatrices)
+#else
 layout(binding=TEX_MATRICES) uniform samplerBuffer matricesBuffer;
+#endif
 // must match cadscene!
 #define NODE_MATRIX_WORLD     0
 #define NODE_MATRIX_WORLDIT   1

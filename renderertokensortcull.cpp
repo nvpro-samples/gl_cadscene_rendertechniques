@@ -128,7 +128,7 @@ namespace csfviewer
     };
 
   public:
-    void init(const CadScene* __restrict scene, const Resources& resources);
+    void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
     void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
     void drawScene(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager, const char*what);
@@ -184,7 +184,7 @@ namespace csfviewer
       // dynamic
       ScanSystem::Buffer   tokenOut;
 
-      CullShade*__restrict cullshade;
+      CullShade* NV_RESTRICT cullshade;
     };
 
     std::vector<DrawItem>       m_drawItems;
@@ -204,7 +204,7 @@ namespace csfviewer
       tokenObjects.push_back(obj);
     }
 
-    void GenerateTokens(std::vector<DrawItem>& drawItems, ShadeType shade, const CadScene* __restrict scene, const Resources& resources )
+    void GenerateTokens(std::vector<DrawItem>& drawItems, ShadeType shade, const CadScene* NV_RESTRICT scene, const Resources& resources )
     {
       int lastMaterial = -1;
       int lastGeometry = -1;
@@ -391,9 +391,10 @@ namespace csfviewer
   static RendererCullSortToken::TypeEmu s_cullsorttoken_emu;
 
 
-  void RendererCullSortToken::init(const CadScene* __restrict scene, const Resources& resources)
+  void RendererCullSortToken::init(const CadScene* NV_RESTRICT scene, const Resources& resources)
   {
     TokenRendererBase::init(s_bindless_ubo, !!GLEW_NV_vertex_buffer_unified_memory);
+    resources.usingUboProgram(true);
 
     m_scene = scene;
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,0,(GLint*)&m_maxGrps);
@@ -553,7 +554,7 @@ namespace csfviewer
 
   void RendererCullSortToken::drawScene(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager, const char*what)
   {
-    const CadScene* __restrict scene = m_scene;
+    const CadScene* NV_RESTRICT scene = m_scene;
 
     nv_helpers_gl::Profiler::Section  section(profiler,what);
 
@@ -657,12 +658,18 @@ namespace csfviewer
     {
       nv_helpers_gl::Profiler::Section section(profiler,"CullF");
 #if CULL_TEMPORAL_NOFRUSTUM
-      cullSys.resultFromBits( m_culljob );
+      {
+        nv_helpers_gl::Profiler::Section section(profiler,"ResF");
+        cullSys.resultFromBits( m_culljob );
+      }
       cullSys.swapBits( m_culljob );  // last/output
 #else
       cullSys.buildOutput( CullingSystem::METHOD_FRUSTUM, m_culljob, resources.cullView );
       cullSys.bitsFromOutput( m_culljob, CullingSystem::BITS_CURRENT_AND_LAST );
-      cullSys.resultFromBits( m_culljob );
+      {
+        nv_helpers_gl::Profiler::Section section(profiler,"ResF");
+        cullSys.resultFromBits( m_culljob );
+      }
 #endif
       if (m_emulate){
         nv_helpers_gl::Profiler::Section read(profiler,"Read");
@@ -683,7 +690,10 @@ namespace csfviewer
       nv_helpers_gl::Profiler::Section section(profiler,"CullR");
       cullSys.buildOutput( CullingSystem::METHOD_RASTER, m_culljob, resources.cullView );
       cullSys.bitsFromOutput( m_culljob, CullingSystem::BITS_CURRENT_AND_NOT_LAST );
-      cullSys.resultFromBits( m_culljob );
+      {
+        nv_helpers_gl::Profiler::Section section(profiler,"ResR");
+        cullSys.resultFromBits( m_culljob );
+      }
 
       // for next frame
       cullSys.bitsFromOutput( m_culljob, CullingSystem::BITS_CURRENT );

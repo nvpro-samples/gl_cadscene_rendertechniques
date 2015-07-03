@@ -164,7 +164,7 @@ namespace csfviewer
 
   void Renderer::fillDrawItems( std::vector<DrawItem>& drawItems, size_t from, size_t to, bool solid, bool wire )
   {
-    const CadScene* __restrict scene = m_scene;
+    const CadScene* NV_RESTRICT scene = m_scene;
     for (size_t i = from; i < scene->m_objects.size() && i < to; i++){
       const CadScene::Object& obj = scene->m_objects[i];
       const CadScene::Geometry& geo = scene->m_geometry[obj.geometryIndex];

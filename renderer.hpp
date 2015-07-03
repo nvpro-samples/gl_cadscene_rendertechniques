@@ -38,12 +38,14 @@
 #endif
 
 #include "cadscene.hpp"
+#include <NvFoundation.h>
 #include <nv_helpers_gl/programmanager.hpp>
 #include <nv_helpers_gl/profiler.hpp>
 #include "cullingsystem.hpp"
 #include "scansystem.hpp"
 
 namespace csfviewer {
+  #define USE_NOFILTER           0  // some renderers support turning off redundancy filter
 
   #define USE_WIRE_SHADERSWITCH  0  // If set we use two different shaders for tris and lines,
                                     // otherwise we use an immediate mode vertexattrib as pseudo uniform toggle.
@@ -83,6 +85,18 @@ namespace csfviewer {
 
     CullingSystem::View cullView;
 
+    // ugly hack
+    mutable GLuint programUsed;
+    mutable GLuint programUsedTris;
+    mutable GLuint programUsedLine;
+
+    void usingUboProgram(bool ubo=true) const
+    {
+      programUsed     = ubo ? programUbo     : programIdx;
+      programUsedTris = ubo ? programUboTris : programIdxTris;
+      programUsedLine = ubo ? programUboLine : programIdxLine;
+    }
+
     Resources() {
       stateIncarnation = 0;
       fboTextureIncarnation = 0;
@@ -90,7 +104,7 @@ namespace csfviewer {
   };
 
 #if USE_WIRE_SHADERSWITCH
-  #define SetWireMode(state) glUseProgram((state) ? resources.programUboLine : resources.programUboTris )
+  #define SetWireMode(state) glUseProgram((state) ? resources.programUsedLine : resources.programUsedTris )
 #else
   #define SetWireMode(state) glVertexAttribI1i(VERTEX_WIREMODE,(state))
 #endif
@@ -106,6 +120,17 @@ namespace csfviewer {
       int                 objectIndex;
       CadScene::DrawRange range;
     };
+
+    static bool DrawItem_compare_groups(const DrawItem& a, const DrawItem& b)
+    {
+      int diff = 0;
+      diff = diff != 0 ? diff : (a.solid == b.solid ? 0 : ( a.solid ? -1 : 1 ));
+      diff = diff != 0 ? diff : (a.materialIndex - b.materialIndex);
+      diff = diff != 0 ? diff : (a.geometryIndex - b.geometryIndex);
+      diff = diff != 0 ? diff : (a.matrixIndex - b.matrixIndex);
+
+      return diff < 0;
+    }
 
     class Type {
     public:
@@ -135,7 +160,7 @@ namespace csfviewer {
     static ScanSystem      s_scansys;
 
   public:
-    virtual void init(const CadScene* __restrict scene, const Resources& resources) {}
+    virtual void init(const CadScene* NV_RESTRICT scene, const Resources& resources) {}
     virtual void deinit() {}
     virtual void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager ) {}
     virtual ~Renderer() {}
@@ -144,7 +169,7 @@ namespace csfviewer {
     void fillDrawItems( std::vector<DrawItem>& drawItems, size_t from, size_t to, bool solid, bool wire);
 
     Strategy                    m_strategy;
-    const CadScene* __restrict  m_scene;
+    const CadScene* NV_RESTRICT  m_scene;
   };
 }
 

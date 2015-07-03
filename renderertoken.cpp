@@ -24,7 +24,6 @@
 -----------------------------------------------------------------------*/
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
-
 #include "tokenbase.hpp"
 
 #include <nv_math/nv_math_glsltypes.h>
@@ -34,9 +33,7 @@ using namespace nv_math;
 
 namespace csfviewer
 {
-
   //////////////////////////////////////////////////////////////////////////
-
 
   class RendererToken: public Renderer, public TokenRendererBase {
   public:
@@ -53,6 +50,27 @@ namespace csfviewer
       Renderer* create() const
       {
         RendererToken* renderer = new RendererToken();
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 9;
+      }
+    };
+    class TypeAddr : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return TokenRendererBase::hasNativeCommandList();
+      }
+      const char* name() const
+      {
+        return "tokenbuffer_address";
+      }
+      Renderer* create() const
+      {
+        RendererToken* renderer = new RendererToken();
+        renderer->m_useaddress = true;
         return renderer;
       }
       unsigned int priority() const 
@@ -103,164 +121,129 @@ namespace csfviewer
       }
     };
 
+    class TypeSort : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return TokenRendererBase::hasNativeCommandList();
+      }
+      const char* name() const
+      {
+        return "tokenbuffer_sorted";
+      }
+      Renderer* create() const
+      {
+        RendererToken* renderer = new RendererToken();
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 9;
+      }
+    };
+    class TypeSortAddr : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return TokenRendererBase::hasNativeCommandList();
+      }
+      const char* name() const
+      {
+        return "tokenbuffer_sorted_address";
+      }
+      Renderer* create() const
+      {
+        RendererToken* renderer = new RendererToken();
+        renderer->m_useaddress = true;
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 9;
+      }
+    };
+    class TypeSortList : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return TokenRendererBase::hasNativeCommandList();
+      }
+      const char* name() const
+      {
+        return "tokenlist_sorted";
+      }
+      Renderer* create() const
+      {
+        RendererToken* renderer = new RendererToken();
+        renderer->m_uselist = true;
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 8;
+      }
+    };
+    class TypeSortEmu : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return true;
+      }
+      const char* name() const
+      {
+        return "tokenbuffer_sorted_emulated";
+      }
+      Renderer* create() const
+      {
+        RendererToken* renderer = new RendererToken();
+        renderer->m_emulate = true;
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 9;
+      }
+    };
 
   public:
-    void init(const CadScene* __restrict scene, const Resources& resources);
+    void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
     void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
 
-    void FillCache( std::string& tokenStream, const CadScene::Object& obj, const CadScene::Geometry& geo, int& lastMaterial, int&lastMatrix, const CadScene* __restrict scene, bool solid ) 
+  private:
+
+    std::vector<DrawItem>       m_drawItems;
+
+    void GenerateTokens(std::vector<DrawItem>& drawItems, ShadeType shade, const CadScene* NV_RESTRICT scene, const Resources& resources )
     {
-      int begin = 0;
-      const CadScene::DrawRangeCache &cache = solid ? obj.cacheSolid : obj.cacheWire;
-
-      for (size_t s = 0; s < cache.state.size(); s++)
-      {
-        const CadScene::DrawStateInfo &state = cache.state[s];
-        if (state.matrixIndex != lastMatrix){
-          NVTokenUbo ubo;
-          ubo.setBinding(UBO_MATRIX, NVTOKEN_STAGE_VERTEX);
-          ubo.setBuffer(scene->m_matricesGL, scene->m_matricesADDR, sizeof(CadScene::MatrixNode) * state.matrixIndex, sizeof(CadScene::MatrixNode) );
-          nvtokenEnqueue(tokenStream, ubo);
-          lastMatrix   = state.matrixIndex;
-        }
-        if (state.materialIndex != lastMaterial){
-          NVTokenUbo ubo;
-          ubo.setBinding(UBO_MATERIAL, NVTOKEN_STAGE_FRAGMENT);
-          ubo.setBuffer(scene->m_materialsGL, scene->m_materialsADDR, sizeof(CadScene::Material) * state.materialIndex, sizeof(CadScene::Material) );
-          nvtokenEnqueue(tokenStream, ubo);
-          lastMaterial = state.materialIndex;
-        }
-        for (int d = 0; d < cache.stateCount[s]; d++){
-          // evict
-          NVTokenDrawElemsUsed drawelems;
-          drawelems.setMode(solid ? GL_TRIANGLES : GL_LINES);
-          drawelems.cmd.count = cache.counts[begin + d];
-          drawelems.cmd.firstIndex = GLuint(cache.offsets[begin + d]/sizeof(GLuint));
-          nvtokenEnqueue(tokenStream, drawelems);
-        }
-        begin += cache.stateCount[s];
-      }
-    }
-
-    void FillJoin( std::string& tokenStream, const CadScene::Object& obj, const CadScene::Geometry& geo, int &lastMaterial, int&lastMatrix, const CadScene* __restrict scene, bool solid ) 
-    {
-      CadScene::DrawRange range;
-
-      for (size_t p = 0; p < obj.parts.size(); p++){
-        const CadScene::ObjectPart&   part = obj.parts[p];
-        const CadScene::GeometryPart& mesh = geo.parts[p];
-
-        if (!part.active || !(solid ? mesh.indexSolid.count : mesh.indexWire.count)) continue;
-
-        if (part.materialIndex != lastMaterial || part.matrixIndex != lastMatrix){
-
-          if (range.count){
-            NVTokenDrawElemsUsed drawelems;
-            drawelems.setMode(solid ? GL_TRIANGLES : GL_LINES);
-            drawelems.cmd.count = range.count;
-            drawelems.cmd.firstIndex = GLuint(range.offset/sizeof(GLuint));
-            nvtokenEnqueue(tokenStream, drawelems);
-          }
-
-          range = CadScene::DrawRange();
-
-          if (part.matrixIndex != lastMatrix){
-            NVTokenUbo ubo;
-            ubo.setBinding(UBO_MATRIX, NVTOKEN_STAGE_VERTEX);
-            ubo.setBuffer(scene->m_matricesGL, scene->m_matricesADDR, sizeof(CadScene::MatrixNode) * part.matrixIndex, sizeof(CadScene::MatrixNode) );
-            nvtokenEnqueue(tokenStream, ubo);
-            lastMatrix   = part.matrixIndex;
-          }
-
-          if (part.materialIndex != lastMaterial){
-            NVTokenUbo ubo;
-            ubo.setBinding(UBO_MATERIAL, NVTOKEN_STAGE_FRAGMENT);
-            ubo.setBuffer(scene->m_materialsGL, scene->m_materialsADDR, sizeof(CadScene::Material) * part.materialIndex, sizeof(CadScene::Material) );
-            nvtokenEnqueue(tokenStream, ubo);
-            lastMaterial = part.materialIndex;
-          }
-        }
-
-        if (!range.count){
-          range.offset = solid ? mesh.indexSolid.offset : mesh.indexWire.offset;
-        }
-
-        range.count += solid ? mesh.indexSolid.count : mesh.indexWire.count;
-      }
-
-      // evict
-      NVTokenDrawElemsUsed drawelems;
-      drawelems.setMode(solid ? GL_TRIANGLES : GL_LINES);
-      drawelems.cmd.count = range.count;
-      drawelems.cmd.firstIndex = GLuint(range.offset/sizeof(GLuint));
-      nvtokenEnqueue(tokenStream, drawelems);
-    }
-
-    void FillIndividual( std::string& tokenStream, const CadScene::Object& obj, const CadScene::Geometry& geo, int& lastMaterial, int&lastMatrix, const CadScene* __restrict scene, bool solid ) 
-    {
-      for (size_t p = 0; p < obj.parts.size(); p++){
-        const CadScene::ObjectPart&   part = obj.parts[p];
-        const CadScene::GeometryPart& mesh = geo.parts[p];
-
-        if (!part.active || !(solid ? mesh.indexSolid.count : mesh.indexWire.count)) continue;
-
-        if (part.matrixIndex != lastMatrix || USE_NOFILTER){
-
-          NVTokenUbo ubo;
-          ubo.setBinding(UBO_MATRIX, NVTOKEN_STAGE_VERTEX);
-          ubo.setBuffer(scene->m_matricesGL, scene->m_matricesADDR, sizeof(CadScene::MatrixNode) * part.matrixIndex, sizeof(CadScene::MatrixNode) );
-          nvtokenEnqueue(tokenStream, ubo);
-          lastMatrix   = part.matrixIndex;
-        }
-
-        if (part.materialIndex != lastMaterial || USE_NOFILTER){
-
-          NVTokenUbo ubo;
-          ubo.setBinding(UBO_MATERIAL, NVTOKEN_STAGE_FRAGMENT);
-          ubo.setBuffer(scene->m_materialsGL, scene->m_materialsADDR, sizeof(CadScene::Material) * part.materialIndex, sizeof(CadScene::Material) );
-          nvtokenEnqueue(tokenStream, ubo);
-          lastMaterial = part.materialIndex;
-        }
-
-        NVTokenDrawElemsUsed drawelems;
-        drawelems.setMode(solid ? GL_TRIANGLES : GL_LINES);
-        drawelems.cmd.count = solid ? mesh.indexSolid.count : mesh.indexWire.count;
-        drawelems.cmd.firstIndex = GLuint((solid ? mesh.indexSolid.offset : mesh.indexWire.offset )/sizeof(GLuint));
-        nvtokenEnqueue(tokenStream, drawelems);
-      }
-    }
-  };
-
-
-  static RendererToken::Type s_token;
-  static RendererToken::TypeList s_token_list;
-  static RendererToken::TypeEmu s_token_emu;
-
-
-  void RendererToken::init(const CadScene* __restrict scene, const Resources& resources)
-  {
-    TokenRendererBase::init(s_bindless_ubo, !!GLEW_NV_vertex_buffer_unified_memory);
-
-    m_scene = scene;
-
-    {
-      size_t begin = 0;
-
-      int lastMatrix = -1;
       int lastMaterial = -1;
       int lastGeometry = -1;
+      int lastMatrix   = -1;
+      bool lastSolid   = true;
 
-      std::string& tokenStream = m_tokenStreams[SHADE_SOLID];
+      ShadeCommand& sc = m_shades[shade];
+      sc.fbos.clear();
+      sc.offsets.clear();
+      sc.sizes.clear();
+      sc.states.clear();
+      
+      std::string& tokenStream = m_tokenStreams[shade];
       tokenStream.clear();
+
+      size_t begin = 0;
 
       {
         NVTokenUbo ubo;
-        ubo.setBinding(UBO_SCENE, NVTOKEN_STAGE_VERTEX);
-        ubo.setBuffer(resources.sceneUbo, resources.sceneAddr, 0, sizeof(SceneData) );
+        ubo.cmd.index   = UBO_SCENE;
+        ubo.cmd.stage   = UBOSTAGE_VERTEX;
+        ubo.setBuffer(resources.sceneUbo, resources.sceneAddr, 0, sizeof(SceneData));
         nvtokenEnqueue(tokenStream, ubo);
 
-        ubo.setBinding(UBO_SCENE, NVTOKEN_STAGE_FRAGMENT);
+        ubo.cmd.stage   = UBOSTAGE_FRAGMENT;
         nvtokenEnqueue(tokenStream, ubo);
 
 #if USE_POLYOFFSETTOKEN
@@ -271,135 +254,116 @@ namespace csfviewer
 #endif
       }
 
-      for (size_t i = 0; i < scene->m_objects.size(); i++){
-        const CadScene::Object& obj = scene->m_objects[i];
-        const CadScene::Geometry& geo = scene->m_geometry[obj.geometryIndex];
+      for (int i = 0; i < drawItems.size(); i++){
+        const DrawItem& di = drawItems[i];
 
-        if (USE_NOFILTER){
-          lastMaterial = -1;
+        if (shade == SHADE_SOLID && !di.solid){
+          continue;
         }
 
-        if (obj.geometryIndex != lastGeometry || USE_NOFILTER){
+        if (shade == SHADE_SOLIDWIRE && di.solid != lastSolid){
+          sc.offsets.push_back( begin );
+          sc.sizes.  push_back( GLsizei((tokenStream.size()-begin)) );
+          sc.states. push_back( m_stateObjects[ lastSolid ? STATE_TRISOFFSET : STATE_LINES ] );
+          sc.fbos.   push_back( 0 );
 
+          begin = tokenStream.size();
+        }
+
+        if (lastGeometry != di.geometryIndex){
+          const CadScene::Geometry &geo = scene->m_geometry[di.geometryIndex];
           NVTokenVbo vbo;
           vbo.cmd.index = 0;
           vbo.setBuffer(geo.vboGL, geo.vboADDR, 0);
           nvtokenEnqueue(tokenStream, vbo);
+
           NVTokenIbo ibo;
           ibo.setBuffer(geo.iboGL, geo.iboADDR);
           ibo.cmd.typeSizeInByte = 4;
           nvtokenEnqueue(tokenStream, ibo);
-          lastGeometry = obj.geometryIndex;
+
+          lastGeometry = di.geometryIndex;
         }
 
-        if (m_strategy == STRATEGY_GROUPS){
-          FillCache(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, true);
-        }
-        else if (m_strategy == STRATEGY_JOIN) {
-          FillJoin(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, true);
-        }
-        else if (m_strategy == STRATEGY_INDIVIDUAL){
-          FillIndividual(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, true);
-        }
-      }
+        if (lastMatrix != di.matrixIndex){
 
-      m_shades[SHADE_SOLID].offsets.push_back( begin );
-      m_shades[SHADE_SOLID].sizes.  push_back( GLsizei((tokenStream.size()- begin)) );
-      m_shades[SHADE_SOLID].states .push_back( m_stateObjects[STATE_TRIS] );
-      m_shades[SHADE_SOLID].fbos   .push_back( 0);
-
-      TokenRendererBase::printStats(SHADE_SOLID);
-    }
-  
-    // SHADE_SOLIDWIRE pass
-
-    {
-      size_t begin = 0;
-
-      int lastMatrix = -1;
-      int lastMaterial = -1;
-      int lastGeometry = -1;
-
-      std::string& tokenStream = m_tokenStreams[SHADE_SOLIDWIRE];
-      tokenStream.clear();
-
-      for (size_t i = 0; i < scene->m_objects.size(); i++){
-        const CadScene::Object& obj = scene->m_objects[i];
-        const CadScene::Geometry& geo = scene->m_geometry[obj.geometryIndex];
-
-        begin = tokenStream.size();
-
-        if (USE_NOFILTER){
-          lastMaterial = -1;
-        }
-
-        if (i == 0){
           NVTokenUbo ubo;
-          ubo.setBinding(UBO_SCENE, NVTOKEN_STAGE_VERTEX);
-          ubo.setBuffer(resources.sceneUbo, resources.sceneAddr, 0, sizeof(SceneData) );
+          ubo.cmd.index   = UBO_MATRIX;
+          ubo.cmd.stage   = UBOSTAGE_VERTEX;
+          ubo.setBuffer(scene->m_matricesGL, scene->m_matricesADDR, sizeof(CadScene::MatrixNode) * di.matrixIndex, sizeof(CadScene::MatrixNode));
           nvtokenEnqueue(tokenStream, ubo);
 
-          ubo.setBinding(UBO_SCENE, NVTOKEN_STAGE_FRAGMENT);
+          lastMatrix = di.matrixIndex;
+        }
+
+        if (lastMaterial != di.materialIndex){
+
+          NVTokenUbo ubo;
+          ubo.cmd.index   = UBO_MATERIAL;
+          ubo.cmd.stage   = UBOSTAGE_FRAGMENT;
+          ubo.setBuffer(scene->m_materialsGL, scene->m_materialsADDR, sizeof(CadScene::Material) * di.materialIndex, sizeof(CadScene::Material));
           nvtokenEnqueue(tokenStream, ubo);
 
-#if USE_POLYOFFSETTOKEN
-          NVTokenPolygonOffset offset;
-          offset.cmd.bias = 1;
-          offset.cmd.scale = 1;
-          nvtokenEnqueue(tokenStream, offset);
-#endif
+          lastMaterial = di.materialIndex;
         }
 
-        if (obj.geometryIndex != lastGeometry || USE_NOFILTER){
 
-          NVTokenVbo vbo;
-          vbo.cmd.index = 0;
-          vbo.setBuffer(geo.vboGL, geo.vboADDR, 0);
-          nvtokenEnqueue(tokenStream, vbo);
-          NVTokenIbo ibo;
-          ibo.setBuffer(geo.iboGL, geo.iboADDR);
-          ibo.cmd.typeSizeInByte = 4;
-          nvtokenEnqueue(tokenStream, ibo);
-          lastGeometry = obj.geometryIndex;
-        }
+        NVTokenDrawElemsUsed drawelems;
+        drawelems.setMode(di.solid ? GL_TRIANGLES : GL_LINES);
+        drawelems.cmd.count = di.range.count;
+        drawelems.cmd.firstIndex = GLuint((di.range.offset )/sizeof(GLuint));
+        nvtokenEnqueue(tokenStream, drawelems);
 
-        // push triangles
-
-        if (m_strategy == STRATEGY_GROUPS){
-          FillCache(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, true);
-        }
-        else if (m_strategy == STRATEGY_JOIN) {
-          FillJoin(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, true);
-        }
-        else if (m_strategy == STRATEGY_INDIVIDUAL){
-          FillIndividual(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, true);
-        }
-
-        m_shades[SHADE_SOLIDWIRE].offsets.push_back( begin );
-        m_shades[SHADE_SOLIDWIRE].sizes.  push_back( GLsizei((tokenStream.size()-begin)) );
-        m_shades[SHADE_SOLIDWIRE].states .push_back( m_stateObjects[STATE_TRISOFFSET] );
-        m_shades[SHADE_SOLIDWIRE].fbos   .push_back( 0);
-
-        // push line
-
-        begin = tokenStream.size();
-
-        if (m_strategy == STRATEGY_GROUPS){
-          FillCache(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, false);
-        }
-        else if (m_strategy == STRATEGY_JOIN) {
-          FillJoin(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, false);
-        }
-        else if (m_strategy == STRATEGY_INDIVIDUAL){
-          FillIndividual(tokenStream, obj, geo, lastMaterial, lastMatrix, scene, false);
-        }
-
-        m_shades[SHADE_SOLIDWIRE].offsets.push_back( begin );
-        m_shades[SHADE_SOLIDWIRE].sizes.  push_back( GLsizei((tokenStream.size()-begin)) );
-        m_shades[SHADE_SOLIDWIRE].states .push_back( m_stateObjects[STATE_LINES] );
-        m_shades[SHADE_SOLIDWIRE].fbos   .push_back( 0 );
+        lastSolid = di.solid;
       }
+
+      sc.offsets.push_back( begin );
+      sc.sizes.  push_back( GLsizei((tokenStream.size()-begin)) );
+      if (shade == SHADE_SOLID){
+        sc.states. push_back( m_stateObjects[ STATE_TRIS ] );
+      }
+      else{
+        sc.states. push_back( m_stateObjects[ lastSolid ? STATE_TRISOFFSET : STATE_LINES ] );
+      }
+      sc.fbos. push_back( 0 );
+
     }
+
+  };
+  static RendererToken::Type      s_token;
+  static RendererToken::TypeAddr  s_token_addr;
+  static RendererToken::TypeList  s_token_list;
+  static RendererToken::TypeEmu   s_token_emu;
+
+  static RendererToken::TypeSort      s_sorttoken;
+  static RendererToken::TypeSortAddr  s_sorttoken_addr;
+  static RendererToken::TypeSortList  s_sorttoken_list;
+  static RendererToken::TypeSortEmu   s_sorttoken_emu;
+
+  void RendererToken::init(const CadScene* NV_RESTRICT scene, const Resources& resources)
+  {
+    TokenRendererBase::init(s_bindless_ubo, !!GLEW_NV_vertex_buffer_unified_memory);
+    resources.usingUboProgram(true);
+
+    m_scene = scene;
+
+    std::vector<DrawItem> drawItems;
+
+    fillDrawItems(drawItems,0,scene->m_objects.size(), true, true);
+
+    if (USE_PERFRAMEBUILD){
+      m_drawItems = drawItems;
+    }
+
+    if (m_sort){
+      std::sort(drawItems.begin(),drawItems.end(),DrawItem_compare_groups);
+    }
+
+    GenerateTokens(drawItems, SHADE_SOLID, scene, resources);
+
+    TokenRendererBase::printStats(SHADE_SOLID);
+
+    GenerateTokens(drawItems, SHADE_SOLIDWIRE, scene, resources);
 
     TokenRendererBase::printStats(SHADE_SOLIDWIRE);
 
@@ -409,11 +373,12 @@ namespace csfviewer
   void RendererToken::deinit()
   {
     TokenRendererBase::deinit();
+    m_drawItems.clear();
   }
 
   void RendererToken::draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
   {
-    const CadScene* __restrict scene = m_scene;
+    const CadScene* NV_RESTRICT scene = m_scene;
 
     // do state setup (primarily for sake of state capturing)
     scene->enableVertexFormat(VERTEX_POS,VERTEX_NORMAL);
@@ -425,6 +390,35 @@ namespace csfviewer
     }
     else{
       glBindBufferBase(GL_UNIFORM_BUFFER,UBO_SCENE,resources.sceneUbo);
+    }
+
+    if (USE_PERFRAMEBUILD){
+
+#if 0
+      std::vector<DrawItem> drawItems;
+      {
+        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Copy");
+        drawItems = m_drawItems;
+      }
+#else
+      std::vector<DrawItem>& drawItems = m_drawItems;
+#endif
+      {
+        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Sort");
+        std::sort(drawItems.begin(),drawItems.end(),DrawItem_compare_groups);
+      }
+
+      {
+        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Token");
+        GenerateTokens(drawItems, shadetype, scene, resources);
+      }
+
+      if (!m_emulate && !m_uselist){
+        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Build");
+        ShadeCommand & shade =  m_shades[shadetype];
+        glInvalidateBufferData(m_tokenBuffers[shadetype]);
+        glNamedBufferSubDataEXT(m_tokenBuffers[shadetype],shade.offsets[0], m_tokenStreams[shadetype].size(), &m_tokenStreams[shadetype][0]);
+      }
     }
 
     if (USE_STATEOBJ_REBUILD){
@@ -449,7 +443,12 @@ namespace csfviewer
       }
       else{
         ShadeCommand & shade =  m_shades[shadetype];
-        glDrawCommandsStatesNV(m_tokenBuffers[shadetype], &shade.offsets[0], &shade.sizes[0], &shade.states[0], &shade.fbos[0], int(shade.states.size()) );
+        if (m_useaddress){
+          glDrawCommandsStatesAddressNV(&shade.addresses[0], &shade.sizes[0], &shade.states[0], &shade.fbos[0], int(shade.states.size()) );
+        }
+        else{
+          glDrawCommandsStatesNV(m_tokenBuffers[shadetype], &shade.offsets[0], &shade.sizes[0], &shade.states[0], &shade.fbos[0], int(shade.states.size()) );
+        }
       }
     }
     else{
@@ -478,4 +477,3 @@ namespace csfviewer
   }
 
 }
-

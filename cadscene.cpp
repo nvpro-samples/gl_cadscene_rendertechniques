@@ -87,6 +87,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
   glGenBuffers(1,&m_materialsGL);
   glNamedBufferStorageEXT(m_materialsGL, sizeof(Material) * m_materials.size(), &m_materials[0], 0);
+  //glMapNamedBufferRange(m_materialsGL, 0, sizeof(Material) * m_materials.size(), GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT);
 
   // geometry
   int numGeoms = csf->numGeometries;
@@ -376,12 +377,10 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
   }
 
-#if 0
-  m_objects.resize(16);
-#endif
-
   glGenBuffers(1,&m_matricesGL);
   glNamedBufferStorageEXT(m_matricesGL, sizeof(MatrixNode) * m_matrices.size(), &m_matrices[0], 0);
+  //glMapNamedBufferRange(m_matricesGL, 0, sizeof(MatrixNode) * m_matrices.size(), GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT);
+  
   glGenTextures(1,&m_matricesTexGL);
   glTextureBufferEXT(m_matricesTexGL, GL_TEXTURE_BUFFER, GL_RGBA32F, m_matricesGL);
 
@@ -394,6 +393,11 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
     glGetNamedBufferParameterui64vNV(m_matricesGL, GL_BUFFER_GPU_ADDRESS_NV, &m_matricesADDR);
     glMakeNamedBufferResidentNV(m_matricesGL, GL_READ_ONLY);
+
+    if (GLEW_NV_bindless_texture){
+      m_matricesTexGLADDR = glGetTextureHandleNV(m_matricesTexGL);
+      glMakeTextureHandleResidentNV(m_matricesTexGLADDR);
+    }
   }
 
   m_nodeTree.create(copies * csf->numNodes);
@@ -548,6 +552,10 @@ void CadScene::unload()
   glFinish();
 
   if (GLEW_NV_vertex_buffer_unified_memory){
+    if (GLEW_NV_bindless_texture){
+      glMakeTextureHandleNonResidentNV(m_matricesTexGLADDR);
+    }
+
     glMakeNamedBufferNonResidentNV(m_matricesGL);
     glMakeNamedBufferNonResidentNV(m_materialsGL);
   }

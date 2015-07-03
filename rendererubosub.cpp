@@ -81,120 +81,90 @@ namespace csfviewer
         return 2;
       }
     };
+    class TypeSort : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return true;
+      }
+      const char* name() const
+      {
+        return "ubosub_sorted";
+      }
+      Renderer* create() const
+      {
+        RendererUboSub* renderer = new RendererUboSub();
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 2;
+      }
+    };
+    class TypeSortVbum : public Renderer::Type 
+    {
+      bool isAvailable() const
+      {
+        return !!GLEW_NV_vertex_buffer_unified_memory;
+      }
+      const char* name() const
+      {
+        return "ubosub_sorted_bindless";
+      }
+      Renderer* create() const
+      {
+        RendererUboSub* renderer = new RendererUboSub();
+        renderer->m_vbum = true;
+        renderer->m_sort = true;
+        return renderer;
+      }
+      unsigned int priority() const 
+      {
+        return 2;
+      }
+    };
 
   public:
-    void init(const CadScene* __restrict scene, const Resources& resources);
+    void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
     void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
 
-
+    bool                        m_sort;
     bool                        m_vbum;
+
+  private:
+
+    std::vector<DrawItem>       m_drawItems;
+
     GLuint                      m_streamMatrix;
     GLuint                      m_streamMaterial;
 
     RendererUboSub()
       : m_vbum(false)
+      , m_sort(false)
     {
 
-    }
-
-  private:
-
-    void RenderCache( const CadScene::DrawRangeCache& cache, const CadScene* __restrict scene, bool solid, int& lastMaterial, int&lastMatrix ) 
-    {
-      int begin = 0;
-      for (size_t s = 0; s < cache.state.size(); s++)
-      {
-        const CadScene::DrawStateInfo &state = cache.state[s];
-
-        if (state.matrixIndex != lastMatrix){
-          glNamedBufferSubDataEXT(m_streamMatrix, 0, sizeof(CadScene::MatrixNode), &scene->m_matrices[state.matrixIndex]);
-          lastMatrix = state.matrixIndex;
-        }
-        if (state.materialIndex != lastMaterial){
-          glNamedBufferSubDataEXT(m_streamMaterial, 0, sizeof(CadScene::Material), &scene->m_materials[state.materialIndex]);
-          lastMaterial = state.materialIndex;
-        }
-        glMultiDrawElements(solid ? GL_TRIANGLES : GL_LINES,&cache.counts[begin],GL_UNSIGNED_INT,(const GLvoid**) &cache.offsets[begin], cache.stateCount[s]);
-        begin += cache.stateCount[s];
-      }
-    }
-
-    void RenderJoin(const CadScene::Object& obj, const CadScene::Geometry& geo, const CadScene* __restrict scene, bool solid, int &lastMaterial, int&lastMatrix)
-    {
-      CadScene::DrawRange range;
-
-      for (size_t p = 0; p < obj.parts.size(); p++){
-        const CadScene::ObjectPart&   part = obj.parts[p];
-        const CadScene::GeometryPart& mesh = geo.parts[p];
-
-        if (!part.active) continue;
-
-        if (part.materialIndex != lastMaterial || part.matrixIndex != lastMatrix){
-          // evict
-          if (range.count){
-            glDrawElements(solid ? GL_TRIANGLES : GL_LINES, range.count, GL_UNSIGNED_INT, (const GLvoid*)range.offset);
-          }
-
-          range = CadScene::DrawRange();
-
-          if (part.matrixIndex != lastMatrix){
-            glNamedBufferSubDataEXT(m_streamMatrix, 0, sizeof(CadScene::MatrixNode), &scene->m_matrices[part.matrixIndex]);
-          }
-          if (part.materialIndex != lastMaterial) {
-            glNamedBufferSubDataEXT(m_streamMaterial, 0, sizeof(CadScene::Material), &scene->m_materials[part.materialIndex]);
-          }
-
-          lastMaterial = part.materialIndex;
-          lastMatrix   = part.matrixIndex;
-        }
-
-        if (!range.count){
-          range.offset = solid ? mesh.indexSolid.offset : mesh.indexWire.offset;
-        }
-
-        range.count += solid ? mesh.indexSolid.count : mesh.indexWire.count;
-      }
-
-      // evict
-      glDrawElements(solid ? GL_TRIANGLES : GL_LINES, range.count, GL_UNSIGNED_INT, (const GLvoid*)range.offset);
-    }
-
-    void RenderIndividual (const CadScene::Object& obj, const CadScene::Geometry& geo, const CadScene* __restrict scene, bool solid, int &lastMaterial, int&lastMatrix)
-    {
-      for (size_t p = 0; p < obj.parts.size(); p++){
-        const CadScene::ObjectPart&   part = obj.parts[p];
-        const CadScene::GeometryPart& mesh = geo.parts[p];
-
-        if (!part.active) continue;
-
-        if (part.matrixIndex != lastMatrix){
-          glNamedBufferSubDataEXT(m_streamMatrix, 0, sizeof(CadScene::MatrixNode), &scene->m_matrices[part.matrixIndex]);
-          lastMatrix = part.matrixIndex;
-        }
-
-        if (part.materialIndex != lastMaterial){
-          glNamedBufferSubDataEXT(m_streamMaterial, 0, sizeof(CadScene::Material), &scene->m_materials[part.materialIndex]);
-          lastMaterial = part.materialIndex;
-        }
-
-        if (solid){
-          glDrawElements(GL_TRIANGLES, mesh.indexSolid.count, GL_UNSIGNED_INT, (const GLvoid*)mesh.indexSolid.offset);
-        }
-        else{
-          glDrawElements(GL_LINES, mesh.indexWire.count, GL_UNSIGNED_INT, (const GLvoid*)mesh.indexWire.offset);
-        }
-
-      }
     }
 
   };
 
   static RendererUboSub::Type s_ubosub;
   static RendererUboSub::TypeVbum s_ubosub_vbum;
+  static RendererUboSub::TypeSort s_ubosub_sort;
+  static RendererUboSub::TypeSortVbum s_ubosub_vbum_sort;
 
-  void RendererUboSub::init(const CadScene* __restrict scene, const Resources& resources)
+  void RendererUboSub::init(const CadScene* NV_RESTRICT scene, const Resources& resources)
   {
+    resources.usingUboProgram(true);
+    m_scene = scene;
+
+    fillDrawItems(m_drawItems,0,scene->m_objects.size(), true, true);
+
+    if (m_sort){
+      std::sort(m_drawItems.begin(),m_drawItems.end(),DrawItem_compare_groups);
+    }
+
     m_scene = scene;
     glGenBuffers(1,&m_streamMatrix);
     glGenBuffers(1,&m_streamMaterial);
@@ -210,7 +180,7 @@ namespace csfviewer
 
   void RendererUboSub::draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
   {
-    const CadScene* __restrict scene = m_scene;
+    const CadScene* NV_RESTRICT scene = m_scene;
 
     bool vbum = m_vbum;
 
@@ -234,61 +204,57 @@ namespace csfviewer
     glBindBufferBase(GL_UNIFORM_BUFFER,UBO_MATRIX,    m_streamMatrix);
     glBindBufferBase(GL_UNIFORM_BUFFER,UBO_MATERIAL,  m_streamMaterial);
 
-    int lastMatrix = -1;
-    int lastMaterial = -1;
-    int lastGeometry = -1;
-    size_t numObjects = scene->m_objects.size();
-    for (size_t i = 0; i < numObjects; i++){
-      const CadScene::Object& obj = scene->m_objects[i];
-      const CadScene::Geometry& geo = scene->m_geometry[obj.geometryIndex];
+    {
+      int lastMaterial = -1;
+      int lastGeometry = -1;
+      int lastMatrix   = -1;
+      bool lastSolid   = true;
 
-      if (obj.geometryIndex != lastGeometry){
+      GLenum mode = GL_TRIANGLES;
 
-        if (vbum){
-          glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 0, geo.vboADDR, geo.numVertices * sizeof(CadScene::Vertex));
-          glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV,0, geo.iboADDR, (geo.numIndexSolid+geo.numIndexWire) * sizeof(GLuint));
-        }
-        else{
-          glBindVertexBuffer(0, geo.vboGL, 0, sizeof(CadScene::Vertex));
-          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geo.iboGL);
+      for (int i = 0; i < m_drawItems.size(); i++){
+        const DrawItem& di = m_drawItems[i];
+
+        if (shadetype == SHADE_SOLID && !di.solid){
+          if (m_sort) break;
+          continue;
         }
 
-        lastGeometry = obj.geometryIndex;
-      }
-
-      if (m_strategy == STRATEGY_GROUPS){
-        if (shadetype == SHADE_SOLID || shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-          RenderCache(obj.cacheSolid, scene, true, lastMaterial, lastMatrix);
+        if (lastSolid != di.solid){
+          SetWireMode( di.solid ? GL_FALSE : GL_TRUE );
+          if (shadetype == SHADE_SOLIDWIRE_SPLIT){
+            glBindFramebuffer(GL_FRAMEBUFFER, di.solid ? resources.fbo : resources.fbo2);
+          }
         }
 
-        if (shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-          SetWireMode(GL_TRUE);
-          RenderCache(obj.cacheWire, scene, false, lastMaterial, lastMatrix);
+        if (lastGeometry != di.geometryIndex){
+          const CadScene::Geometry &geo = scene->m_geometry[di.geometryIndex];
 
-          SetWireMode(GL_FALSE);
-        }
-      }
-      else if (m_strategy == STRATEGY_JOIN) {
-        if (shadetype == SHADE_SOLID || shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-          RenderJoin(obj, geo, scene, true, lastMaterial, lastMatrix);
-        }
-        if (shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-          SetWireMode(GL_TRUE);
-          RenderJoin(obj, geo, scene, false, lastMaterial, lastMatrix);
+          if (vbum){
+            glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 0,  geo.vboADDR, geo.numVertices * sizeof(CadScene::Vertex));
+            glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV,0,         geo.iboADDR, (geo.numIndexSolid+geo.numIndexWire) * sizeof(GLuint));
+          }
+          else{
+            glBindVertexBuffer(0, geo.vboGL, 0, sizeof(CadScene::Vertex));
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geo.iboGL);
+          }
 
-          SetWireMode(GL_FALSE);
+          lastGeometry = di.geometryIndex;
         }
-      }
-      else if (m_strategy == STRATEGY_INDIVIDUAL){
-        if (shadetype == SHADE_SOLID || shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-          RenderIndividual(obj, geo, scene, true, lastMaterial, lastMatrix);
-        }
-        if (shadetype == SHADE_SOLIDWIRE || shadetype == SHADE_SOLIDWIRE_SPLIT){
-          SetWireMode(GL_TRUE);
-          RenderIndividual(obj, geo, scene, false, lastMaterial, lastMatrix);
 
-          SetWireMode(GL_FALSE);
+        if (lastMatrix != di.matrixIndex){
+          glNamedBufferSubDataEXT(m_streamMatrix, 0, sizeof(CadScene::MatrixNode), &scene->m_matrices[di.matrixIndex]);
+          lastMatrix = di.matrixIndex;
         }
+
+        if (lastMaterial != di.materialIndex){
+          glNamedBufferSubDataEXT(m_streamMaterial, 0, sizeof(CadScene::Material), &scene->m_materials[di.materialIndex]);
+          lastMaterial = di.materialIndex;
+        }
+
+        glDrawElements( di.solid ? GL_TRIANGLES : GL_LINES, di.range.count, GL_UNSIGNED_INT, (void*) di.range.offset);
+
+        lastSolid = di.solid;
       }
     }
 

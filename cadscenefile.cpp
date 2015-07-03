@@ -35,6 +35,8 @@
 #include <zlib.h>
 #endif
 
+#include <NvFoundation.h>
+
 #define CADSCENEFILE_MAGIC 1567262451
 #if defined(__amd64__) || defined(__x86_64__) || defined(_M_X64) || defined(__AMD64__)
 #define xftell(f) _ftelli64(f)
@@ -481,12 +483,12 @@ CSFAPI int CSFile_saveExt(CSFile* csf, const char* filename)
 
 #endif
 
-static __forceinline void Matrix44Copy(float* __restrict dst, const float* __restrict  a)
+static NV_FORCE_INLINE void Matrix44Copy(float* NV_RESTRICT dst, const float* NV_RESTRICT  a)
 {
   memcpy(dst,a,sizeof(float) * 16);
 }
 
-static __forceinline void Matrix44MultiplyFull( float* __restrict clip, const float* __restrict  proj , const float* __restrict modl)
+static NV_FORCE_INLINE void Matrix44MultiplyFull( float* NV_RESTRICT clip, const float* NV_RESTRICT  proj , const float* NV_RESTRICT modl)
 {
 
   clip[ 0] = modl[ 0] * proj[ 0] + modl[ 1] * proj[ 4] + modl[ 2] * proj[ 8] + modl[ 3] * proj[12];
@@ -511,7 +513,7 @@ static __forceinline void Matrix44MultiplyFull( float* __restrict clip, const fl
 
 }
 
-static void CSFile_transformHierarchy(CSFile *csf, CSFNode * __restrict node, CSFNode * __restrict parent)
+static void CSFile_transformHierarchy(CSFile *csf, CSFNode * NV_RESTRICT node, CSFNode * NV_RESTRICT parent)
 {
   if (parent){
     Matrix44MultiplyFull(node->worldTM, parent->worldTM, node->objectTM);
@@ -521,7 +523,7 @@ static void CSFile_transformHierarchy(CSFile *csf, CSFNode * __restrict node, CS
   }
 
   for (int i = 0; i < node->numChildren; i++){
-    CSFNode* __restrict child = csf->nodes + node->children[i];
+    CSFNode* NV_RESTRICT child = csf->nodes + node->children[i];
     CSFile_transformHierarchy(csf,child,node);
   }
 }

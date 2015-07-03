@@ -72,6 +72,7 @@ namespace csfviewer
     };
 
     struct ShadeCommand {
+      std::vector<GLuint64>   addresses;
       std::vector<GLintptr>   offsets;
       std::vector<GLsizei>    sizes;
       std::vector<GLuint>     states;
@@ -79,13 +80,17 @@ namespace csfviewer
     };
 
     bool  m_emulate;
+    bool  m_sort;
     bool  m_uselist;
+    bool  m_useaddress;
 
     TokenRendererBase()
       : m_hwsupport(false)
       , m_bindlessVboUbo(false)
+      , m_useaddress(false)
       , m_emulate(false)
       , m_uselist(false)
+      , m_sort(false)
       , m_stateIncarnation(~0)
       , m_fboStateIncarnation(~0)
     {
@@ -100,6 +105,7 @@ namespace csfviewer
     bool                        m_bindlessVboUbo;
 
     GLuint                      m_tokenBuffers[NUM_SHADES];
+    GLuint64                    m_tokenAddresses[NUM_SHADES];
     std::string                 m_tokenStreams[NUM_SHADES];
     GLuint                      m_commandLists[NUM_SHADES];
     ShadeCommand                m_shades[NUM_SHADES];
@@ -118,6 +124,6 @@ namespace csfviewer
 
     void captureState(const Resources &resources);
 
-    void renderShadeCommandSW( const void* __restrict stream, size_t streamSize, ShadeCommand &shade );
+    void renderShadeCommandSW( const void* NV_RESTRICT stream, size_t streamSize, ShadeCommand &shade );
   };
 }

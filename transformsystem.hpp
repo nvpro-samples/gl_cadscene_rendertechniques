@@ -94,6 +94,9 @@ private:
     TEXTURES,
   };
 
+  GLuint    m_leavesGroup;
+  GLuint    m_levelsGroup;
+
   Programs  m_programs;
   GLuint    m_scratchGL;
   GLuint    m_texsGL[TEXTURES];

@@ -128,6 +128,9 @@ namespace csfviewer
       bool          animateActive;
       float         animateMin;
       float         animateDelta;
+      int           zoom;
+      int           msaa;
+      bool          noUI;
 
       Tweak() 
         : renderer(0)
@@ -140,6 +143,9 @@ namespace csfviewer
         , animateActive(false)
         , animateMin(1)
         , animateDelta(1)
+        , zoom(100)
+        , msaa(0)
+        , noUI(false)
       {}
     };
 
@@ -149,17 +155,15 @@ namespace csfviewer
     SceneData             sceneUbo;
     CadScene              cadscene;
     TransformSystem       transformSystem;
+    GLuint                xplodeGroupSize;
 
 
     std::vector<unsigned int>  sortedRenderers;
 
-    Renderer* __restrict  renderer;
+    Renderer* NV_RESTRICT  renderer;
     Resources             resources;
 
     std::string           filename;
-    unsigned int          frame;
-    unsigned int          frameLimit;
-
     size_t                stateIncarnation;
 
 
@@ -179,8 +183,6 @@ namespace csfviewer
   public:
 
     Sample() 
-      : frameLimit(0)
-      , frame(0)
     {
 
     }
@@ -198,15 +200,19 @@ namespace csfviewer
     }
     // return true to prevent m_window updates
     bool mouse_pos    (int x, int y) {
+      if (tweak.noUI) return false;
       return !!TwEventMousePosGLFW(x,y); 
     }
     bool mouse_button (int button, int action) {
+      if (tweak.noUI) return false;
       return !!TwEventMouseButtonGLFW(button, action);
     }
     bool mouse_wheel  (int wheel) {
+      if (tweak.noUI) return false;
       return !!TwEventMouseWheelGLFW(wheel); 
     }
     bool key_button   (int button, int action, int mods) {
+      if (tweak.noUI) return false;
       return handleTwKeyPressed(button,action,mods);
     }
     
@@ -356,7 +362,7 @@ namespace csfviewer
   {
     bool layered = true;
    
-    if (!fbos.scene)
+    if (!fbos.scene || tweak.msaa != lastTweak.msaa)
     {
       newFramebuffer(fbos.scene);
       newFramebuffer(fbos.scene2);
@@ -375,10 +381,16 @@ namespace csfviewer
       }
 
       newTexture(textures.scene_color);
-      glTextureStorage3DEXT(textures.scene_color, GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, width, height,2);
-
       newTexture(textures.scene_depthstencil);
-      glTextureStorage3DEXT(textures.scene_depthstencil, GL_TEXTURE_2D_ARRAY, 1, GL_DEPTH24_STENCIL8, width, height,2);
+
+      if (tweak.msaa){
+        glTextureStorage3DMultisampleEXT(textures.scene_color,        GL_TEXTURE_2D_MULTISAMPLE_ARRAY, tweak.msaa, GL_RGBA8, width, height, 2, GL_TRUE);
+        glTextureStorage3DMultisampleEXT(textures.scene_depthstencil, GL_TEXTURE_2D_MULTISAMPLE_ARRAY, tweak.msaa, GL_DEPTH24_STENCIL8, width, height, 2, GL_TRUE);
+      }
+      else{
+        glTextureStorage3DEXT(textures.scene_color, GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, width, height,2);
+        glTextureStorage3DEXT(textures.scene_depthstencil, GL_TEXTURE_2D_ARRAY, 1, GL_DEPTH24_STENCIL8, width, height,2);
+      }
 
       glNamedFramebufferTextureLayerEXT(fbos.scene, GL_COLOR_ATTACHMENT0,     textures.scene_color, 0,0);
       glNamedFramebufferTextureLayerEXT(fbos.scene, GL_DEPTH_STENCIL_ATTACHMENT, textures.scene_depthstencil, 0,0);
@@ -401,19 +413,31 @@ namespace csfviewer
       }
 
       newTexture(textures.scene_color);
-      glTextureStorage2DEXT(textures.scene_color, GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
-
       newTexture(textures.scene_depthstencil);
-      glTextureStorage2DEXT(textures.scene_depthstencil, GL_TEXTURE_2D, 1, GL_DEPTH24_STENCIL8, width, height);
+
+      if (tweak.msaa){
+        glTextureStorage2DMultisampleEXT(textures.scene_color, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_RGBA8, width, height, GL_TRUE);
+        glTextureStorage2DMultisampleEXT(textures.scene_depthstencil, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_DEPTH24_STENCIL8, width, height, GL_TRUE);
+      }
+      else{
+        glTextureStorage2DEXT(textures.scene_color, GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
+        glTextureStorage2DEXT(textures.scene_depthstencil, GL_TEXTURE_2D, 1, GL_DEPTH24_STENCIL8, width, height);
+      }
 
       glNamedFramebufferTexture2DEXT(fbos.scene, GL_COLOR_ATTACHMENT0,        GL_TEXTURE_2D, textures.scene_color, 0);
       glNamedFramebufferTexture2DEXT(fbos.scene, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, textures.scene_depthstencil, 0);
 
       newTexture(textures.scene_color2);
-      glTextureStorage2DEXT(textures.scene_color2, GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
-
       newTexture(textures.scene_depthstencil2);
-      glTextureStorage2DEXT(textures.scene_depthstencil2, GL_TEXTURE_2D, 1, GL_DEPTH24_STENCIL8, width, height);
+
+      if (tweak.msaa){
+        glTextureStorage2DMultisampleEXT(textures.scene_color2, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_RGBA8, width, height, GL_TRUE);
+        glTextureStorage2DMultisampleEXT(textures.scene_depthstencil2, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_DEPTH24_STENCIL8, width, height, GL_TRUE);
+      }
+      else{
+        glTextureStorage2DEXT(textures.scene_color2, GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
+        glTextureStorage2DEXT(textures.scene_depthstencil2, GL_TEXTURE_2D, 1, GL_DEPTH24_STENCIL8, width, height);
+      }
 
       glNamedFramebufferTexture2DEXT(fbos.scene2, GL_COLOR_ATTACHMENT0,        GL_TEXTURE_2D, textures.scene_color2, 0);
       glNamedFramebufferTexture2DEXT(fbos.scene2, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, textures.scene_depthstencil2, 0);
@@ -480,7 +504,7 @@ namespace csfviewer
 
     TwBar *bar = TwNewBar("mainbar");
     TwDefine(" GLOBAL contained=true help='OpenGL samples.\nCopyright NVIDIA Corporation 2013-2014' ");
-    TwDefine(" mainbar position='0 0' size='320 200' color='0 0 0' alpha=128 valueswidth=170 ");
+    TwDefine(" mainbar position='0 0' size='320 220' color='0 0 0' alpha=128 valueswidth=170 ");
     TwDefine((std::string(" mainbar label='") + PROJECT_NAME + "'").c_str());
     
     
@@ -526,7 +550,13 @@ namespace csfviewer
       {SHADE_SOLIDWIRE_SPLIT,"solid w edges (split test, only in sorted)"},
     };
     TwType shadeType = TwDefineEnum("shade", shadeVals, sizeof(shadeVals)/sizeof(shadeVals[0]));
-    
+    TwEnumVal msaaVals[] = {
+      {0,"none"},
+      {2,"2x"},
+      {4,"4x"},
+      {8,"8x"},
+    };
+    TwType msaaType = TwDefineEnum("msaa", msaaVals, sizeof(msaaVals)/sizeof(msaaVals[0]));
     TwAddVarRW(bar, "renderer", rendererType,  &tweak.renderer,  " label='renderer' ");
     TwAddVarRW(bar, "strategy", strategyType,  &tweak.strategy,  " label='strategy' ");
     TwAddVarRW(bar, "shademode", shadeType,    &tweak.shade,  " label='shademode' ");
@@ -537,11 +567,12 @@ namespace csfviewer
     TwAddVarRW(bar, "cloneX", TW_TYPE_BOOL32,  &tweak.cloneaxisX,  " label='clone X' ");
     TwAddVarRW(bar, "cloneY", TW_TYPE_BOOL32,  &tweak.cloneaxisY,  " label='clone Y' ");
     TwAddVarRW(bar, "cloneZ", TW_TYPE_BOOL32,  &tweak.cloneaxisZ,  " label='clone Z' ");
+    TwAddVarRW(bar, "msaa", msaaType,  &tweak.msaa,  " label='msaa' ");
     
 
     m_control.m_sceneOrbit = nv_math::vec3f(cadscene.m_bbox.max+cadscene.m_bbox.min)*0.5f;
     m_control.m_sceneDimension = nv_math::length((cadscene.m_bbox.max-cadscene.m_bbox.min));
-    m_control.m_viewMatrix = nv_math::look_at(m_control.m_sceneOrbit - (-vec3(1,1,1)*m_control.m_sceneDimension*0.5f), m_control.m_sceneOrbit, vec3(0,1,0));
+    m_control.m_viewMatrix = nv_math::look_at(m_control.m_sceneOrbit - (-vec3(1,1,1)*m_control.m_sceneDimension*0.5f*(float(tweak.zoom)/100.0f)), m_control.m_sceneOrbit, vec3(0,1,0));
 
     sceneUbo.wLightPos = (cadscene.m_bbox.max+cadscene.m_bbox.min)*0.5f + m_control.m_sceneDimension;
     sceneUbo.wLightPos.w = 1.0;
@@ -589,6 +620,10 @@ namespace csfviewer
     resources.programIdxLine  = progManager.get(programs.draw_object_indexed_line);
     resources.programIdxTris  = progManager.get(programs.draw_object_indexed_tris);
 
+    GLuint groupsizes[3];
+    glGetProgramiv(progManager.get(programs.xplode),GL_COMPUTE_WORK_GROUP_SIZE, (GLint*)groupsizes);
+    xplodeGroupSize = groupsizes[0];
+
     resources.stateIncarnation++;
   }
 
@@ -603,6 +638,10 @@ namespace csfviewer
       progManager.reloadPrograms();
       Renderer::getRegistry()[tweak.renderer]->updatedPrograms( progManager );
       updatedPrograms();
+    }
+
+    if (tweak.msaa != lastTweak.msaa){
+      initFramebuffers(m_window.m_viewsize[0],m_window.m_viewsize[1]);
     }
 
     if (tweak.clones    != lastTweak.clones ||
@@ -667,6 +706,8 @@ namespace csfviewer
       sceneUbo.wLightPos = sceneUbo.viewMatrixIT.row(3);
       sceneUbo.wLightPos.w = 1.0;
 
+      sceneUbo.tboMatrices = uvec2(cadscene.m_matricesTexGLADDR & 0xFFFFFFFF, cadscene.m_matricesTexGLADDR >> 32);
+
       glNamedBufferSubDataEXT(buffers.scene_ubo,0,sizeof(SceneData),&sceneUbo);
 
       glDisable(GL_CULL_FACE);
@@ -679,21 +720,20 @@ namespace csfviewer
 
         float speed = 0.5;
         float scale = tweak.animateMin + (cosf(float(time) * speed) * 0.5f + 0.5f) * (tweak.animateDelta);
-        int   totalNodes = int(cadscene.m_matrices.size());
-        int   groupsize = 256;
+        GLuint   totalNodes = GLuint(cadscene.m_matrices.size());
+        GLuint   groupsize = xplodeGroupSize;
 
         glUseProgram(progManager.get(programs.xplode));
         glUniform1f(0, scale);
         glUniform1i(1, totalNodes);
 
-        glBindTextures(0,1,&cadscene.m_matricesOrigTexGL);
+        glBindMultiTextureEXT(GL_TEXTURE0, GL_TEXTURE_BUFFER, cadscene.m_matricesOrigTexGL);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, cadscene.m_matricesGL);
 
         glDispatchCompute((totalNodes+groupsize-1)/groupsize,1,1);
-        glMemoryBarrierEXT(GL_SHADER_STORAGE_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        GLuint zero[1] = {0};
-        glBindTextures(0,1,zero);
+        glBindMultiTextureEXT(GL_TEXTURE0, GL_TEXTURE_BUFFER, 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
         glUseProgram(0);
       }
@@ -762,17 +802,12 @@ namespace csfviewer
       }
     }
     
-    {
+    if (!tweak.noUI){
       NV_PROFILE_SECTION("TwDraw");
       TwDraw();
     }
 
     lastTweak = tweak;
-    frame++;
-
-    if (frameLimit && frame == frameLimit){
-      m_window.m_keyPressed[KEY_ESCAPE] = true;
-    }
   }
 
   void Sample::resize(int width, int height)
@@ -789,10 +824,6 @@ namespace csfviewer
       if (strstr(argv[i],".csf")){
         filename = std::string(argv[i]);
       }
-      if (strcmp(argv[i],"-frames")==0 && i+1<argc){
-        frameLimit = atoi(argv[i+1]);
-        i++;
-      }
       if (strcmp(argv[i],"-renderer")==0 && i+1<argc){
         tweak.renderer = atoi(argv[i+1]);
         i++;
@@ -803,6 +834,20 @@ namespace csfviewer
       }
       if (strcmp(argv[i],"-shademode")==0 && i+1<argc){
         tweak.shade = (ShadeType)atoi(argv[i+1]);
+        i++;
+      }
+      if (strcmp(argv[i],"-xplode")==0){
+        tweak.animateActive = true;
+      }
+      if (strcmp(argv[i],"-zoom")==0 && i+1<argc){
+        tweak.zoom = atoi(argv[i+1]);
+        i++;
+      }
+      if (strcmp(argv[i],"-noui")==0){
+        tweak.noUI = true;
+      }
+      if (strcmp(argv[i],"-msaa")==0 && i+1<argc){
+        tweak.msaa = atoi(argv[i+1]);
         i++;
       }
     }

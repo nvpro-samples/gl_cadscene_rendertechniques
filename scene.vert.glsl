@@ -4,17 +4,19 @@
 #extension GL_ARB_shading_language_include : enable
 #include "common.h"
 
+#if USE_INDEXING && USE_BASEINSTANCE
+#extension GL_ARB_shader_draw_parameters : require
+#endif
 in layout(location=VERTEX_POS)      vec3 pos;
 in layout(location=VERTEX_NORMAL)   vec3 normal;
 
 #if USE_INDEXING
+#if USE_BASEINSTANCE
+ivec2 assigns = ivec2( gl_BaseInstanceARB & 0xFFFFF, gl_BaseInstanceARB >> 20);
+#else
 in layout(location=VERTEX_ASSIGNS)  ivec2 assigns;
-#define matrixIndex assigns.x
 #endif
-
-#if USE_MIX
-in layout(location=VERTEX_ASSIGNS)  int assigns;
-#define matrixIndex assigns
+#define matrixIndex assigns.x
 #endif
 
 #if !defined(WIREMODE)

@@ -36,17 +36,25 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
   glBindBuffer    (GL_SHADER_STORAGE_BUFFER,  m_scratchGL);
   glBufferData    (GL_SHADER_STORAGE_BUFFER,  sizeof(GLuint)*nodeTree.getNumActiveNodes(),NULL,GL_STREAM_DRAW);
 
+#if 0
+  // APIC hack
+  glTextureBufferEXT(m_texsGL[TEXTURE_IDS],   GL_TEXTURE_BUFFER, GL_R32I,    ids.buffer);
+  glTextureBufferEXT(m_texsGL[TEXTURE_OBJECT],GL_TEXTURE_BUFFER, GL_RGBA32F, matricesObject.buffer);
+  glTextureBufferEXT(m_texsGL[TEXTURE_WORLD], GL_TEXTURE_BUFFER, GL_RGBA32F, matricesWorld.buffer);
+#else
   glTextureBufferRangeEXT(m_texsGL[TEXTURE_IDS],   GL_TEXTURE_BUFFER, GL_R32I,    ids.buffer, ids.offset, ids.size);
   glTextureBufferRangeEXT(m_texsGL[TEXTURE_OBJECT],GL_TEXTURE_BUFFER, GL_RGBA32F, matricesObject.buffer, matricesObject.offset, matricesObject.size);
   glTextureBufferRangeEXT(m_texsGL[TEXTURE_WORLD], GL_TEXTURE_BUFFER, GL_RGBA32F, matricesWorld.buffer,  matricesWorld.offset,  matricesWorld.size);
+#endif
 
-  glBindTextures(0,TEXTURES,m_texsGL);
+  for (int i = 0; i < TEXTURES; i++){
+    glBindMultiTextureEXT(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, m_texsGL[i]);
+  }
 
   matricesWorld.BindBufferRange(GL_SHADER_STORAGE_BUFFER,0);
   matricesObject.BindBufferRange(GL_SHADER_STORAGE_BUFFER,1);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER,2,m_scratchGL);
 
-  const int groupsize = 256;
   const int maxshaderlevels = 10;
   int maxlevels = maxshaderlevels;
   int totalNodes = 0;
@@ -77,7 +85,7 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
     currentDepth++;
     level = nodeTree.getUsedLevel(currentDepth);
     if (willdispatch){
-
+      int groupsize = useLeaves ? m_leavesGroup : m_levelsGroup;
       if (useLeaves){
         glUniform1i(0,totalNodes);
         glUniform1i(1,1);
@@ -87,7 +95,7 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
       }
       
       glDispatchCompute((totalNodes+groupsize-1)/groupsize,1,1);
-      glMemoryBarrierEXT(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+      glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
       if (useLeaves){
         // switch to per-level mode after first batch of leaves is over (tip of hierarchy)
@@ -105,8 +113,9 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER,1,0);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER,2,0);
 
-  GLuint zero[TEXTURES] = {0};
-  glBindTextures(0,TEXTURES,zero);
+  for (int i = 0; i < TEXTURES; i++){
+    glBindMultiTextureEXT(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, 0);
+  }
   
 }
 
@@ -126,6 +135,13 @@ void TransformSystem::deinit()
 void TransformSystem::update( const Programs &programs )
 {
   m_programs = programs;
+
+  GLuint groupsizes[3];
+  glGetProgramiv(programs.transform_leaves, GL_COMPUTE_WORK_GROUP_SIZE, (GLint*)groupsizes);
+  m_leavesGroup = groupsizes[0];
+
+  glGetProgramiv(programs.transform_level, GL_COMPUTE_WORK_GROUP_SIZE, (GLint*)groupsizes);
+  m_levelsGroup = groupsizes[0];
 }
 
 
