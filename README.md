@@ -95,6 +95,7 @@ This approach does not reuse the tokens across frames, but instead dynamically c
 
 All timings are preliminary results for *Timer Draw* on a win7-64, i7-860, Quadro K5000 system. 
 
+**Important Note About Timer Query Results:** The GPU time reported below is measured via timer queries, those values however can be skewed by CPU bottlenecks. The "begin" timestamp may be part of a different command submission to the GPU than the "end" timestamp. That means long delay on the CPU side between those submissions will also increase the reported GPU time. That is why in CPU-bottlenecked scenarios with tons of OpenGL commands, the GPU times below are close to the CPU time.
 
 ```
 scene statistics:
