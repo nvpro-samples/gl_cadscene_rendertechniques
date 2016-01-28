@@ -181,7 +181,7 @@ namespace csfviewer
   public:
     void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
-    void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
+    void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
 
     bool                        m_vbum;
     bool                        m_sort;
@@ -348,7 +348,7 @@ namespace csfviewer
     }
   }
 
-  void RendererIndexedMDI::draw( ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager )
+  void RendererIndexedMDI::draw( ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager )
   {
     const CadScene* NV_RESTRICT scene = m_scene;
     bool vbum = m_vbum;

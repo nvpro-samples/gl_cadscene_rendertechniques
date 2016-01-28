@@ -40,7 +40,7 @@
 #include "cadscene.hpp"
 #include <NvFoundation.h>
 #include <nv_helpers_gl/programmanager.hpp>
-#include <nv_helpers_gl/profiler.hpp>
+#include <nv_helpers/profiler.hpp>
 #include "cullingsystem.hpp"
 #include "scansystem.hpp"
 
@@ -162,7 +162,7 @@ namespace csfviewer {
   public:
     virtual void init(const CadScene* NV_RESTRICT scene, const Resources& resources) {}
     virtual void deinit() {}
-    virtual void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager ) {}
+    virtual void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager ) {}
     virtual ~Renderer() {}
 
 

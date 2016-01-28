@@ -49,6 +49,11 @@ namespace csfviewer
   {
     m_bindlessVboUbo = bindlessVbo && bindlessUbo;
     m_hwsupport = hasNativeCommandList() && !m_emulate;
+
+    for (int i = 0; i < NUM_STATES; i++){
+      m_tokenAddresses[i] = 0;
+    }
+
     if (m_hwsupport){
       glCreateStatesNV(NUM_STATES,m_stateObjects);
 
@@ -131,12 +136,31 @@ namespace csfviewer
     if (m_hwsupport && fillBuffers){
       for (int i = 0; i < NUM_SHADES; i++){
         glNamedBufferStorageEXT(m_tokenBuffers[i],m_tokenStreams[i].size(), &m_tokenStreams[i][0], 0);
+        if (m_useaddress){
+          glGetNamedBufferParameterui64vNV(m_tokenBuffers[i], GL_BUFFER_GPU_ADDRESS_NV, &m_tokenAddresses[i]);
+          glMakeNamedBufferResidentNV(m_tokenBuffers[i], GL_READ_ONLY);
+
+          ShadeCommand& sc = m_shades[i];
+          sc.addresses.clear();
+          sc.addresses.reserve( sc.offsets.size() );
+          for (size_t n = 0; n < sc.offsets.size(); n++){
+            sc.addresses.push_back( m_tokenAddresses[i] + sc.offsets[n] );
+          }
+        }
       }
     }
   }
 
   void TokenRendererBase::deinit()
   {
+    if (m_useaddress){
+      for (int i = 0; i < NUM_SHADES; i++){
+        if (m_tokenAddresses[i]){
+          glMakeNamedBufferNonResidentNV( m_tokenBuffers[i] );
+        }
+      }
+    }
+
     glDeleteBuffers(NUM_SHADES,m_tokenBuffers);
 
     if (m_hwsupport){
@@ -184,7 +208,7 @@ namespace csfviewer
 
       // we will do a series of state captures
       glBindFramebuffer(GL_FRAMEBUFFER, resources.fbo);
-      glUseProgram(resources.programUbo);
+      glUseProgram(resources.programUsed);
 
       SetWireMode(GL_FALSE);
 
@@ -229,9 +253,9 @@ namespace csfviewer
       }
 
       if (!m_hwsupport){
-        m_stateSystem.prepareTransition(m_stateIDs[STATE_TRISOFFSET],m_stateObjects[STATE_LINES]);
-        m_stateSystem.prepareTransition(m_stateIDs[STATE_LINES],m_stateObjects[STATE_TRISOFFSET]);
-        m_stateSystem.prepareTransition(m_stateIDs[STATE_TRISOFFSET],m_stateObjects[STATE_LINES_SPLIT]);
+        m_stateSystem.prepareTransition(m_stateIDs[STATE_TRISOFFSET], m_stateObjects[STATE_LINES]);
+        m_stateSystem.prepareTransition(m_stateIDs[STATE_LINES],      m_stateObjects[STATE_TRISOFFSET]);
+        m_stateSystem.prepareTransition(m_stateIDs[STATE_TRISOFFSET], m_stateObjects[STATE_LINES_SPLIT]);
         m_stateSystem.prepareTransition(m_stateIDs[STATE_LINES_SPLIT],m_stateObjects[STATE_TRISOFFSET]);
       }
 
@@ -264,7 +288,7 @@ namespace csfviewer
     }
   }
 
-  void TokenRendererBase::renderShadeCommandSW( const void* __restrict stream, size_t streamSize, ShadeCommand &shade )
+  void TokenRendererBase::renderShadeCommandSW( const void* NV_RESTRICT stream, size_t streamSize, ShadeCommand &shade )
   {
     nvtokenDrawCommandsStatesSW(stream, streamSize, &shade.offsets[0], &shade.sizes[0], &shade.states[0], &shade.fbos[0], GLuint(shade.states.size()), m_stateSystem);
   }

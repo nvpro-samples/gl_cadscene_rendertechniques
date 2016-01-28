@@ -212,7 +212,7 @@ namespace csfviewer
   public:
     void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
-    void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
+    void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
 
   private:
 
@@ -376,7 +376,7 @@ namespace csfviewer
     m_drawItems.clear();
   }
 
-  void RendererToken::draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
+  void RendererToken::draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
   {
     const CadScene* NV_RESTRICT scene = m_scene;
 
@@ -397,24 +397,24 @@ namespace csfviewer
 #if 0
       std::vector<DrawItem> drawItems;
       {
-        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Copy");
+        nv_helpers::Profiler::Section _tempTimer(profiler ,"Copy");
         drawItems = m_drawItems;
       }
 #else
       std::vector<DrawItem>& drawItems = m_drawItems;
 #endif
       {
-        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Sort");
+        nv_helpers::Profiler::Section _tempTimer(profiler ,"Sort");
         std::sort(drawItems.begin(),drawItems.end(),DrawItem_compare_groups);
       }
 
       {
-        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Token");
+        nv_helpers::Profiler::Section _tempTimer(profiler ,"Token");
         GenerateTokens(drawItems, shadetype, scene, resources);
       }
 
       if (!m_emulate && !m_uselist){
-        nv_helpers_gl::Profiler::Section _tempTimer(profiler ,"Build");
+        nv_helpers::Profiler::Section _tempTimer(profiler ,"Build");
         ShadeCommand & shade =  m_shades[shadetype];
         glInvalidateBufferData(m_tokenBuffers[shadetype]);
         glNamedBufferSubDataEXT(m_tokenBuffers[shadetype],shade.offsets[0], m_tokenStreams[shadetype].size(), &m_tokenStreams[shadetype][0]);
@@ -422,7 +422,7 @@ namespace csfviewer
     }
 
     if (USE_STATEOBJ_REBUILD){
-      nv_helpers_gl::Profiler::Section section(profiler,"state");
+      nv_helpers::Profiler::Section section(profiler,"state");
       for (int i = 0; i < 25; i++){
         m_stateIncarnation = resources.stateIncarnation + 1;
         m_fboStateIncarnation = resources.fboTextureIncarnation + 1;

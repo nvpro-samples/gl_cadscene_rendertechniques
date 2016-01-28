@@ -130,8 +130,8 @@ namespace csfviewer
   public:
     void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
-    void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
-    void drawScene(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager, const char*what);
+    void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
+    void drawScene(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager, const char*what);
 
   private:
 
@@ -552,11 +552,11 @@ namespace csfviewer
     glDisable(GL_RASTERIZER_DISCARD);
   }
 
-  void RendererCullSortToken::drawScene(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager, const char*what)
+  void RendererCullSortToken::drawScene(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager, const char*what)
   {
     const CadScene* NV_RESTRICT scene = m_scene;
 
-    nv_helpers_gl::Profiler::Section  section(profiler,what);
+    nv_helpers::Profiler::Section  section(profiler,what);
 
     // do state setup (primarily for sake of state capturing)
     m_scene->enableVertexFormat(VERTEX_POS,VERTEX_NORMAL);
@@ -613,7 +613,7 @@ namespace csfviewer
 
 #define CULL_TEMPORAL_NOFRUSTUM 1
 
-  void RendererCullSortToken::draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
+  void RendererCullSortToken::draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
   {
     // broken in other types atm
     //shadetype = SHADE_SOLID;
@@ -629,16 +629,16 @@ namespace csfviewer
 #if !USE_TEMPORALRASTER
 
     {
-      nv_helpers_gl::Profiler::Section section(profiler,"CullF");
+      nv_helpers::Profiler::Section section(profiler,"CullF");
       cullSys.buildOutput( CullingSystem::METHOD_FRUSTUM, m_culljob, resources.cullView );
       cullSys.bitsFromOutput( m_culljob, CullingSystem::BITS_CURRENT );
       {
-        nv_helpers_gl::Profiler::Section section(profiler,"ResF");
+        nv_helpers::Profiler::Section section(profiler,"ResF");
         cullSys.resultFromBits( m_culljob );
       }
 
       if (m_emulate){
-        nv_helpers_gl::Profiler::Section read(profiler,"Read");
+        nv_helpers::Profiler::Section read(profiler,"Read");
         m_culljob.tokenOut.GetNamedBufferSubData(&m_tokenStream[m_culljob.tokenOut.offset]);
         GLuint* first = (GLuint*)&m_tokenStream[m_culljob.tokenOut.offset];
         first[0] = first[0];
@@ -656,10 +656,10 @@ namespace csfviewer
 #else
 
     {
-      nv_helpers_gl::Profiler::Section section(profiler,"CullF");
+      nv_helpers::Profiler::Section section(profiler,"CullF");
 #if CULL_TEMPORAL_NOFRUSTUM
       {
-        nv_helpers_gl::Profiler::Section section(profiler,"ResF");
+        nv_helpers::Profiler::Section section(profiler,"ResF");
         cullSys.resultFromBits( m_culljob );
       }
       cullSys.swapBits( m_culljob );  // last/output
@@ -667,12 +667,12 @@ namespace csfviewer
       cullSys.buildOutput( CullingSystem::METHOD_FRUSTUM, m_culljob, resources.cullView );
       cullSys.bitsFromOutput( m_culljob, CullingSystem::BITS_CURRENT_AND_LAST );
       {
-        nv_helpers_gl::Profiler::Section section(profiler,"ResF");
+        nv_helpers::Profiler::Section section(profiler,"ResF");
         cullSys.resultFromBits( m_culljob );
       }
 #endif
       if (m_emulate){
-        nv_helpers_gl::Profiler::Section read(profiler,"Read");
+        nv_helpers::Profiler::Section read(profiler,"Read");
         void* data = &m_tokenStreams[shadetype][m_culljob.tokenOut.offset];
         m_culljob.tokenOut.GetNamedBufferSubData(data);
       }
@@ -687,11 +687,11 @@ namespace csfviewer
     drawScene(shadetype,resources,profiler,progManager, "Last");
 
     {
-      nv_helpers_gl::Profiler::Section section(profiler,"CullR");
+      nv_helpers::Profiler::Section section(profiler,"CullR");
       cullSys.buildOutput( CullingSystem::METHOD_RASTER, m_culljob, resources.cullView );
       cullSys.bitsFromOutput( m_culljob, CullingSystem::BITS_CURRENT_AND_NOT_LAST );
       {
-        nv_helpers_gl::Profiler::Section section(profiler,"ResR");
+        nv_helpers::Profiler::Section section(profiler,"ResR");
         cullSys.resultFromBits( m_culljob );
       }
 
@@ -701,7 +701,7 @@ namespace csfviewer
       cullSys.swapBits( m_culljob );  // last/output
 #endif
       if (m_emulate){
-        nv_helpers_gl::Profiler::Section read(profiler,"Read");
+        nv_helpers::Profiler::Section read(profiler,"Read");
         void* data = &m_tokenStreams[shadetype][m_culljob.tokenOut.offset];
         m_culljob.tokenOut.GetNamedBufferSubData(data);
       }

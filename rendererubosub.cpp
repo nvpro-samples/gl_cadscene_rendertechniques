@@ -128,7 +128,7 @@ namespace csfviewer
   public:
     void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
-    void draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
+    void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
 
     bool                        m_sort;
     bool                        m_vbum;
@@ -178,7 +178,7 @@ namespace csfviewer
     glDeleteBuffers(1,&m_streamMaterial);
   }
 
-  void RendererUboSub::draw(ShadeType shadetype, const Resources& resources, nv_helpers_gl::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
+  void RendererUboSub::draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
   {
     const CadScene* NV_RESTRICT scene = m_scene;
 
