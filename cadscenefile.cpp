@@ -24,7 +24,6 @@
 -----------------------------------------------------------------------*/
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
-#include "cadscenefile.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -35,10 +34,19 @@
 #include <zlib.h>
 #endif
 
+#include <string.h> // for memcpy
+#include <stddef.h> // for memcpy
+#include "cadscenefile.h"
 #include <NvFoundation.h>
 
+#ifdef WIN32
+#define FREAD(a,b,c,d,e) fread_s(a,b,c,d,e)
+#else
+#define FREAD(a,b,c,d,e) fread(a,c,d,e)
+#endif
+
 #define CADSCENEFILE_MAGIC 1567262451
-#if defined(__amd64__) || defined(__x86_64__) || defined(_M_X64) || defined(__AMD64__)
+#if defined(WIN32) && (defined(__amd64__) || defined(__x86_64__) || defined(_M_X64) || defined(__AMD64__))
 #define xftell(f) _ftelli64(f)
 #define xfseek(f,pos,encoded) _fseeki64(f,pos,encoded)
 #else
@@ -131,14 +139,19 @@ CSFAPI int     CSFile_loadRaw (CSFile** outcsf, size_t size, void* dataraw)
 CSFAPI int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR mem)
 {
   FILE* file;
-  if (fopen_s(&file,filename,"rb")){
+#ifdef WIN32
+  if (fopen_s(&file,filename,"rb"))
+#else
+  if (file = fopen(filename,"rb"))
+#endif
+  {
     *outcsf = 0;
     return CADSCENEFILE_ERROR_NOFILE;
   }
 
   CSFile header;
   size_t sizeshould = 0;
-  if (!fread_s(&header,sizeof(header),sizeof(header),1,file) ||
+  if (!FREAD(&header,sizeof(header),sizeof(header),1,file) ||
       !(sizeshould=CSFile_getRawSize(&header)))
   {
     fclose(file);
@@ -158,7 +171,7 @@ CSFAPI int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR me
   }
   
   char* data  = (char*)mem->alloc(size);
-  fread_s(data,size,size,1,file);
+  FREAD(data,size,size,1,file);
   fclose(file);
 
   return CSFile_loadRaw(outcsf,size,data);
@@ -208,7 +221,11 @@ struct OutputFILE {
 
   int  open(const char* filename, CSFileMemoryPTR mem)
   {
-    return fopen_s(&m_file,filename,"wb");
+#ifdef WIN32
+  return fopen_s(&m_file,filename,"wb");
+#else
+  return (m_file = fopen(filename,"wb")) ? 1 : 0;
+#endif
   }
   void close()
   {
