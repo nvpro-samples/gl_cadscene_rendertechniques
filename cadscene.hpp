@@ -39,7 +39,7 @@ public:
     nv_math::vec4f    min;
     nv_math::vec4f    max;
 
-    BBox() : min(FLT_MAX), max(FLT_MIN) {}
+    BBox() : min(FLT_MAX), max(-FLT_MAX) {}
 
     inline void merge( const nv_math::vec4f& point )
     {
