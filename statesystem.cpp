@@ -720,7 +720,7 @@ const StateSystem::State& StateSystem::get( StateID id ) const
   return m_states[id].state;
 }
 
-__forceinline int StateSystem::prepareTransitionCache(StateID prev, StateInternal& to )
+NV_FORCE_INLINE int StateSystem::prepareTransitionCache(StateID prev, StateInternal& to )
 {
   StateInternal& from = m_states[prev];
 

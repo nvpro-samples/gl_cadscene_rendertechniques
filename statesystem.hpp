@@ -28,7 +28,7 @@
 #ifndef STATESYSTEM_H__
 #define STATESYSTEM_H__
 
-
+#include "platform.h"
 #include <GL/glew.h>
 #include <vector>
 
