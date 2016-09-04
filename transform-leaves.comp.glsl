@@ -59,11 +59,11 @@ mat4 getMatrix(samplerBuffer texbuffer, int idx)
 
 mat4 getObjectMatrix(int idx, int what){
   return getMatrix(texObjectMatrices,idx*MATRICES + what + MATRIX_BEGIN_OBJECT);
-};
+}
 
 mat4 getWorldMatrix(int idx, int what){
   return getMatrix(texWorldMatrices,idx*MATRICES + what + MATRIX_BEGIN_WORLD);
-};
+}
 
 void main()
 {
