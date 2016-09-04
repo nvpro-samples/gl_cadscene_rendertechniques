@@ -1,4 +1,6 @@
 #version 330
+#extension GL_ARB_explicit_attrib_location : require
+#extension GL_ARB_shader_storage_buffer_object : enable
 /**/
 
 #ifndef MATRIX_WORLD
@@ -12,10 +14,6 @@
 #ifndef MATRICES
 #define MATRICES        2
 #endif
-
-#extension GL_ARB_explicit_attrib_location : require
-#extension GL_ARB_shader_storage_buffer_object : enable
-
 
 //#define OCCLUSION
 

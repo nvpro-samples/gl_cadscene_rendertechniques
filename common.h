@@ -41,7 +41,6 @@ struct SceneData {
 
 #if defined(GL_core_profile) || defined(GL_compatibility_profile) || defined(GL_es_profile)
 
-#extension GL_NV_command_list : enable
 #if GL_NV_command_list
 layout(commandBindableNV) uniform;
 #endif
@@ -60,8 +59,6 @@ layout(std140,binding=UBO_MATRIX) uniform matrixBuffer {
   mat4 objectMatrixIT;
 } object;
 
-#extension GL_ARB_bindless_texture : enable
-#extension GL_NV_bindless_texture : enable
 #if GL_NV_bindless_texture
 #define matricesBuffer  samplerBuffer(scene.tboMatrices)
 #else

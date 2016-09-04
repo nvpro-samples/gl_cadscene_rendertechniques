@@ -1,4 +1,6 @@
 #version 330
+#extension GL_ARB_explicit_attrib_location : require
+#extension GL_ARB_shader_storage_buffer_object : enable
 /**/
 
 #define TEMPORAL_LAST 1
@@ -7,9 +9,6 @@
 #ifndef TEMPORAL
 #define TEMPORAL 0
 #endif
-
-#extension GL_ARB_explicit_attrib_location : require
-#extension GL_ARB_shader_storage_buffer_object : enable
 
 layout(location=0) in uvec4 instream[8];
 

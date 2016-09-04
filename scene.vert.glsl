@@ -1,7 +1,10 @@
 #version 430
+#extension GL_ARB_shading_language_include : enable
+#extension GL_NV_command_list : enable
+#extension GL_ARB_bindless_texture : enable
+#extension GL_NV_bindless_texture : enable
 /**/
 
-#extension GL_ARB_shading_language_include : enable
 #include "common.h"
 
 #if USE_INDEXING && USE_BASEINSTANCE

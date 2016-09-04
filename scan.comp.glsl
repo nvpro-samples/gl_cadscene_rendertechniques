@@ -1,4 +1,6 @@
 #version 430
+#extension GL_NV_shader_thread_group : enable
+#extension GL_NV_shader_thread_shuffle : enable
 /**/
 
 #define TASK_SUM      0
@@ -23,9 +25,6 @@ layout (local_size_x = THREADBLOCK_SIZE) in;
 #if TASK != TASK_COMBINE
 
 uint threadIdx = gl_LocalInvocationID.x;
-
-#extension GL_NV_shader_thread_group : enable
-#extension GL_NV_shader_thread_shuffle : enable
 
 #if GL_NV_shader_thread_group
 
