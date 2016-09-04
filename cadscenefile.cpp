@@ -76,16 +76,16 @@ struct CSFileMemory_s
   }
 };
 
-CSFAPI CSFileMemoryPTR CSFileMemory_new()
+NV_API_EXPORT CSFileMemoryPTR CSFileMemory_new()
 {
   return new CSFileMemory_s;
 }
-CSFAPI void CSFileMemory_delete(CSFileMemoryPTR mem)
+NV_API_EXPORT void CSFileMemory_delete(CSFileMemoryPTR mem)
 {
   delete mem;
 }
 
-CSFAPI void* CSFileMemory_alloc(CSFileMemoryPTR mem, size_t sz, const void*fill)
+NV_API_EXPORT void* CSFileMemory_alloc(CSFileMemoryPTR mem, size_t sz, const void*fill)
 {
   return mem->alloc(sz,fill);
 }
@@ -97,7 +97,7 @@ static size_t CSFile_getRawSize(CSFile* csf)
   return csf->pointersOFFSET + csf->numPointers * sizeof(CSFoffset);
 }
 
-CSFAPI int     CSFile_loadRaw (CSFile** outcsf, size_t size, void* dataraw)
+NV_API_EXPORT int     CSFile_loadRaw (CSFile** outcsf, size_t size, void* dataraw)
 {
   char* data  = (char*)dataraw;
   CSFile* csf = (CSFile*)data;
@@ -136,7 +136,7 @@ CSFAPI int     CSFile_loadRaw (CSFile** outcsf, size_t size, void* dataraw)
   return CADSCENEFILE_NOERROR;
 }
 
-CSFAPI int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR mem)
+NV_API_EXPORT int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR mem)
 {
   FILE* file;
 #ifdef WIN32
@@ -178,7 +178,7 @@ CSFAPI int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR me
 }
 
 #if CSF_ZIP_SUPPORT
-CSFAPI int CSFile_loadExt(CSFile** outcsf, const char* filename, CSFileMemoryPTR mem)
+NV_API_EXPORT int CSFile_loadExt(CSFile** outcsf, const char* filename, CSFileMemoryPTR mem)
 {
   size_t len = strlen(filename);
   if (strcmp(filename+len-3,".gz")==0) {
@@ -481,13 +481,13 @@ static int CSFile_saveInternal(const CSFile* csf, const char* filename, CSFileMe
   return CADSCENEFILE_NOERROR;
 }
 
-CSFAPI int CSFile_save(const CSFile* csf, const char* filename)
+NV_API_EXPORT int CSFile_save(const CSFile* csf, const char* filename)
 {
   return CSFile_saveInternal<OutputFILE>(csf,filename,0);
 }
 
 #if CSF_ZIP_SUPPORT
-CSFAPI int CSFile_saveExt(CSFile* csf, const char* filename)
+NV_API_EXPORT int CSFile_saveExt(CSFile* csf, const char* filename)
 {
   size_t len = strlen(filename);
   if (strcmp(filename+len-3,".gz")==0) {
@@ -545,7 +545,7 @@ static void CSFile_transformHierarchy(CSFile *csf, CSFNode * NV_RESTRICT node, C
   }
 }
 
-CSFAPI int CSFile_transform( CSFile *csf )
+NV_API_EXPORT int CSFile_transform( CSFile *csf )
 {
   if (!(csf->fileFlags & CADSCENEFILE_FLAG_UNIQUENODES))
     return CADSCENEFILE_ERROR_OPERATION;

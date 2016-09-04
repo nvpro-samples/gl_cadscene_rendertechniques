@@ -26,11 +26,9 @@
 
 #pragma once
 
+#include "platform.h"
 
-extern "C" {
-
-#define CSFAPI __declspec(dllexport)
-
+extern "C" {   
   enum {
     CADSCENEFILE_VERSION = 4,
     CADSCENEFILE_VERSION_COMPAT = 2,
@@ -172,19 +170,19 @@ extern "C" {
 
   typedef struct CSFileMemory_s* CSFileMemoryPTR;
 
-  CSFAPI CSFileMemoryPTR CSFileMemory_new();
-  CSFAPI void*  CSFileMemory_alloc(CSFileMemoryPTR mem, size_t sz, const void*fill);
-  CSFAPI void   CSFileMemory_delete(CSFileMemoryPTR mem);
+  NV_API_EXPORT CSFileMemoryPTR CSFileMemory_new();
+  NV_API_EXPORT void*  CSFileMemory_alloc(CSFileMemoryPTR mem, size_t sz, const void*fill);
+  NV_API_EXPORT void   CSFileMemory_delete(CSFileMemoryPTR mem);
 
-  CSFAPI int    CSFile_loadRaw (CSFile** outcsf, size_t sz, void* data);
-  CSFAPI int    CSFile_load    (CSFile** outcsf, const char* filename, CSFileMemoryPTR mem);
-  CSFAPI int    CSFile_save    (const CSFile* csf, const char* filename);
+  NV_API_EXPORT int    CSFile_loadRaw (CSFile** outcsf, size_t sz, void* data);
+  NV_API_EXPORT int    CSFile_load    (CSFile** outcsf, const char* filename, CSFileMemoryPTR mem);
+  NV_API_EXPORT int    CSFile_save    (const CSFile* csf, const char* filename);
 
-  CSFAPI int    CSFile_transform(CSFile *csf);  // requires unique nodes
+  NV_API_EXPORT int    CSFile_transform(CSFile *csf);  // requires unique nodes
 
 #if CSF_ZIP_SUPPORT
-  CSFAPI int    CSFile_loadExt(CSFile** outcsf, const char* filename, CSFileMemoryPTR mem);
-  CSFAPI int    CSFile_saveExt(CSFile* csf, const char* filename);
+  NV_API_EXPORT int    CSFile_loadExt(CSFile** outcsf, const char* filename, CSFileMemoryPTR mem);
+  NV_API_EXPORT int    CSFile_saveExt(CSFile* csf, const char* filename);
 #endif
 
 };
