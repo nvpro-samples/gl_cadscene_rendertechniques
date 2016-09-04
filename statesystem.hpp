@@ -31,6 +31,7 @@
 #include "platform.h"
 #include <GL/glew.h>
 #include <vector>
+#include <cstring>
 
 class StateSystem {
 public:
