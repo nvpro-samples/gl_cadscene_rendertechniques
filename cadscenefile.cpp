@@ -1,5 +1,5 @@
 /*-----------------------------------------------------------------------
-  Copyright (c) 2014, NVIDIA. All rights reserved.
+  Copyright (c) 2011-2016, NVIDIA. All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -22,7 +22,6 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -----------------------------------------------------------------------*/
-/* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 
 #include <assert.h>
@@ -44,7 +43,6 @@
 #else
 #define FREAD(a,b,c,d,e) fread(a,c,d,e)
 #endif
-
 #define CADSCENEFILE_MAGIC 1567262451
 #if defined(WIN32) && (defined(__amd64__) || defined(__x86_64__) || defined(_M_X64) || defined(__AMD64__))
 #define xftell(f) _ftelli64(f)
@@ -90,9 +88,19 @@ CSFAPI void* CSFileMemory_alloc(CSFileMemoryPTR mem, size_t sz, const void*fill)
   return mem->alloc(sz,fill);
 }
 
-static size_t CSFile_getRawSize(CSFile* csf)
+static size_t CSFile_getHeaderSize( const CSFile* csf )
 {
-  if (csf->magic != CADSCENEFILE_MAGIC || csf->version < CADSCENEFILE_VERSION_COMPAT) return 0;
+  if (csf->version >= CADSCENEFILE_VERSION_META){
+    return sizeof( CSFile );
+  }
+  else {
+    return offsetof( CSFile, nodeMetas );
+  }
+}
+
+static size_t CSFile_getRawSize(const CSFile* csf)
+{
+  if (csf->magic != CADSCENEFILE_MAGIC || csf->version < CADSCENEFILE_VERSION_COMPAT || csf->version > CADSCENEFILE_VERSION) return 0;
 
   return csf->pointersOFFSET + csf->numPointers * sizeof(CSFoffset);
 }
@@ -102,7 +110,7 @@ CSFAPI int     CSFile_loadRaw (CSFile** outcsf, size_t size, void* dataraw)
   char* data  = (char*)dataraw;
   CSFile* csf = (CSFile*)data;
 
-  if (size < sizeof(CSFile) || csf->magic != CADSCENEFILE_MAGIC || (csf->version < CADSCENEFILE_VERSION_COMPAT)){
+  if (size < sizeof(CSFile) || csf->magic != CADSCENEFILE_MAGIC || (csf->version < CADSCENEFILE_VERSION_COMPAT || csf->version > CADSCENEFILE_VERSION)){
     *outcsf = 0;
     return CADSCENEFILE_ERROR_VERSION;
   }
@@ -149,7 +157,7 @@ CSFAPI int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR me
     return CADSCENEFILE_ERROR_NOFILE;
   }
 
-  CSFile header;
+  CSFile header = { 0 };
   size_t sizeshould = 0;
   if (!FREAD(&header,sizeof(header),sizeof(header),1,file) ||
       !(sizeshould=CSFile_getRawSize(&header)))
@@ -158,7 +166,7 @@ CSFAPI int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR me
     *outcsf = 0;
     return CADSCENEFILE_ERROR_VERSION;
   }
-  
+
   // load the full file to memory
   xfseek(file, 0, SEEK_END);
   size_t size = (size_t)xftell(file);
@@ -169,7 +177,7 @@ CSFAPI int CSFile_load(CSFile** outcsf, const char* filename, CSFileMemoryPTR me
     *outcsf = 0;
     return CADSCENEFILE_ERROR_VERSION;
   }
-  
+
   char* data  = (char*)mem->alloc(size);
   FREAD(data,size,size,1,file);
   fclose(file);
@@ -188,7 +196,7 @@ CSFAPI int CSFile_loadExt(CSFile** outcsf, const char* filename, CSFileMemoryPTR
       return CADSCENEFILE_ERROR_NOFILE;
     }
 
-    CSFile header;
+    CSFile header = { 0 };
     size_t sizeshould = 0;
     if (!gzread(filegz,&header, (z_off_t)sizeof(header)) ||
       !(sizeshould=CSFile_getRawSize(&header)))
@@ -197,7 +205,7 @@ CSFAPI int CSFile_loadExt(CSFile** outcsf, const char* filename, CSFileMemoryPTR
       *outcsf = 0;
       return CADSCENEFILE_ERROR_VERSION;
     }
-    
+
 
     gzseek(filegz,0,SEEK_SET);
     char* data  = (char*)CSFileMemory_alloc(mem,sizeshould,0);
@@ -402,7 +410,9 @@ static int CSFile_saveInternal(const CSFile* csf, const char* filename, CSFileMe
 
   CSFOffsetMgr<T> mgr(file);
 
-  CSFile dump = *csf;
+  CSFile dump = { 0 };
+  memcpy(&dump, csf, CSFile_getHeaderSize(csf));
+
   dump.version = CADSCENEFILE_VERSION;
   dump.magic   = CADSCENEFILE_MAGIC;
   // dump main part as is
@@ -470,6 +480,45 @@ static int CSFile_saveInternal(const CSFile* csf, const char* filename, CSFileMe
       if (node->children && node->numChildren){
         mgr.store(nodeOFFSET + offsetof(CSFNode,childrenOFFSET),
           node->children, sizeof(int) * node->numChildren);
+      }
+    }
+  }
+
+  if (CSFile_getNodeMetas(csf)){
+    size_t metaOFFSET = mgr.store( offsetof( CSFile, nodeMetasOFFSET ),
+      csf->nodeMetas, sizeof( CSFMeta ) * csf->numNodes );
+
+    for (int i = 0; i < csf->numNodes; i++, metaOFFSET+=sizeof( CSFMeta )){
+      const CSFMeta* meta = csf->nodeMetas + i;
+      if (meta->bytes && meta->numBytes){
+        mgr.store( metaOFFSET + offsetof( CSFMeta, bytesOFFSET ),
+          meta->bytes, sizeof(unsigned char) * meta->numBytes );
+      }
+    }
+  }
+
+  if (CSFile_getGeometryMetas(csf)){
+    size_t metaOFFSET = mgr.store( offsetof( CSFile, geometryMetasOFFSET ),
+      csf->geometryMetas, sizeof( CSFMeta ) * csf->numGeometries );
+
+    for (int i = 0; i < csf->numNodes; i++, metaOFFSET+=sizeof( CSFMeta )){
+      const CSFMeta* meta = csf->geometryMetas + i;
+      if (meta->bytes && meta->numBytes){
+        mgr.store( metaOFFSET + offsetof( CSFMeta, bytesOFFSET ),
+          meta->bytes, sizeof( unsigned char ) * meta->numBytes );
+      }
+    }
+  }
+
+  if (CSFile_getFileMeta( csf )){
+    size_t metaOFFSET = mgr.store( offsetof( CSFile, fileMetaOFFSET ),
+      csf->fileMeta, sizeof( CSFMeta ));
+
+    {
+      const CSFMeta* meta = csf->fileMeta;
+      if (meta->bytes && meta->numBytes){
+        mgr.store( metaOFFSET + offsetof( CSFMeta, bytesOFFSET ),
+          meta->bytes, sizeof( unsigned char ) * meta->numBytes );
       }
     }
   }
@@ -554,3 +603,48 @@ CSFAPI int CSFile_transform( CSFile *csf )
   return CADSCENEFILE_NOERROR;
 }
 
+CSFAPI const CSFMeta* CSFile_getNodeMetas( const CSFile* csf )
+{
+  if (csf->version >= CADSCENEFILE_VERSION_META && csf->fileFlags & CADSCENEFILE_FLAG_META_NODE){
+    return csf->nodeMetas;
+  }
+
+  return NULL;
+}
+
+CSFAPI const CSFMeta* CSFile_getGeometryMetas( const CSFile* csf )
+{
+  if (csf->version >= CADSCENEFILE_VERSION_META && csf->fileFlags & CADSCENEFILE_FLAG_META_GEOMETRY){
+    return csf->geometryMetas;
+  }
+
+  return NULL;
+}
+
+
+CSFAPI const CSFMeta* CSFile_getFileMeta( const CSFile* csf )
+{
+  if (csf->version >= CADSCENEFILE_VERSION_META && csf->fileFlags & CADSCENEFILE_FLAG_META_FILE){
+   return csf->fileMeta;
+  }
+
+  return NULL;
+}
+
+
+CSFAPI const CSFBytePacket* CSFile_getBytePacket( const unsigned char* bytes, CSFoffset numBytes, CSFGuid guid )
+{
+  if (numBytes < sizeof(CSFBytePacket)) return NULL;
+
+  do {
+    const CSFBytePacket* packet = (const CSFBytePacket*)bytes;
+    if (memcmp(guid,packet->guid,sizeof(CSFGuid)) == 0){
+      return packet;
+    }
+    numBytes -= packet->numBytes;
+    bytes += packet->numBytes;
+
+  } while(numBytes >= sizeof(CSFBytePacket));
+
+  return NULL;
+}
