@@ -17,6 +17,13 @@ struct Material {
   Side  _pad[2];
 };
 
+// NOTE
+// When material data becomes larger, and the ratio of draws/materials is higher
+// it is recommended to not use INDEXING for material data, but use a regular
+// ubo as usual.
+// Likewise SSBO indexing are even less recommended for this purpose, as SSBOs 
+// are slower to access.
+
 layout(std140,binding=UBO_MATERIAL) uniform materialBuffer {
 #if USE_INDEXING
   Material  materials[256];
