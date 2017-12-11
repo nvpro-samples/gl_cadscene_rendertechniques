@@ -238,6 +238,13 @@ These files contain helpers when using the NV_command_list extension, please che
 ### Building
 Ideally clone this and other interesting [nvpro-samples](https://github.com/nvpro-samples) repositories into a common subdirectory. You will always need [shared_sources](https://github.com/nvpro-samples/shared_sources) and on Windows [shared_external](https://github.com/nvpro-samples/shared_external). The shared directories are searched either as subdirectory of the sample or one directory up. It is recommended to use the [build_all](https://github.com/nvpro-samples/build_all) cmake as entry point, it will also give you options to enable/disable individual samples when creating the solutions.
 
+### Providing Pull Requests
+NVIDIA is happy to review and consider pull requests for merging into the main tree of the nvpro-samples for bug fixes and features. Before providing a pull request to NVIDIA, please note the following:
+
+* A pull request provided to this repo by a developer constitutes permission from the developer for NVIDIA to merge the provided changes or any NVIDIA modified version of these changes to the repo. NVIDIA may remove or change the code at any time and in any way deemed appropriate.
+* Not all pull requests can be or will be accepted. NVIDIA will close pull requests that it does not intend to merge.
+The modified files and any new files must include the unmodified NVIDIA copyright header seen at the top of all shipping files.
+
 ### Related Samples
 [gl commandlist basic](https://github.com/nvpro-samples/gl_commandlist_basic) illustrates the core principle of the NV_command_list extension.
 [gl occlusion cullling](https://github.com/nvpro-samples/gl_occlusion_cullling) also uses the occlusion system of this sample, but in a simpler usage scenario.
