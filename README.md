@@ -76,12 +76,11 @@ Not as efficient as the above, but maybe appropriate if you cannot afford cachin
 
 - **indexedmdi**
 Similar to uborange we make use of all data stored in a bigger buffers in advance. It doesn't make this data "static" you can always update the portions you need, but there is a high chance a lot of data is the same frame to frame. This time we do not bind memory ranges through the OpenGL api, but let the shader do an indirection and only pass the required matrix and material indices. 
-For the matrix data we use GL_TEXTURE_BUFFER as it's particularly well for high frequency / potentially divergent access. We typically have far more matrices than materials in our scene. For material data it's a bit "ugly" to use lots of texelFetch instructions decoding all our parameters, it's much easier to write them as structs and store the array either as GL_UNIFORM_BUFFER or GL_SHADER_STORAGE_BUFFER. The latter should only be used if there are very high frequency changes and divergent shader access likely.
-
+For the matrix data we use GL_TEXTURE_BUFFER as it's particularly well for high frequency / potentially divergent access. We typically have far more matrices than materials in our scene. For material data it's a bit "ugly" to use lots of texelFetch instructions decoding all our parameters, it's much easier to write them as structs and store the array either as GL_UNIFORM_BUFFER or GL_SHADER_STORAGE_BUFFER. The latter is only recommended if you have divergent shader access or exceed the 64 KB limit of UBOs.
 To pass the indices per-drawcall we make use of GL_ARB_multi_draw_indirect and "instanced" vertex attributes as described at [GTC 2013 on slide 27](http://on-demand.gputechconf.com/gtc/2013/presentations/S3032-Advanced-Scenegraph-Rendering-Pipeline.pdf).
 Therefore this renderer requires two additional buffers: one encoding our object's matrix and material index assignments and one encoding the scene's drawcalls as GL_DRAW_INDIRECT_BUFFER. 
 
-> **IMPORTANT Note**: In a more complex real-world rendering system (not the simple setup of this sample) a **hybrid approach is highly recommended**, where the parameter index like "indexedmdi" is used for matrices but uborange bind is used for materials. It was not implemented here, but would be a better compromise when sorting for materials first.
+A hybrid approach, where the parameter index like "indexedmdi" is used for matrices and uborange bind is used for materials, was not yet implemented, but would be a good compromise.
 
 The following renderers make use of the **NV_command_list** extension. In principle they **behave as "uborange"**, however all buffer bindings and drawcalls are encoded into binary tokens, that are submitted in bulk. In preparation to drawing the appropriate stateobjects are created and reused when rendering (one for lines and for triangles). While stateobject capturing is not crazy expensive, it is still best to cache it across frames.
 
@@ -148,7 +147,7 @@ tokenbuffer_cullsorted | 540 | 120 | 760 | 120
 The results are of course very scene dependent, this model was specfically chosen as it is made of many parts with very few triangles. If the complexity per draw-call was higher (say more triangles or complex shading) then
 the CPU impact would be less and we would be GPU-bound. However the CPU time that is "giving back" by faster mechanism can always be used elsewhere. So even if we are GPU-bound, time should not be wasted.
 
-We can see that the "token" techniques do very well and are never CPU-bound, but also the "indexedmdi" technique is quite good. This technique is especially useful for very high frequency parametrs, for example when rendering "id-buffers" for selection, but also matrix indices. For the general use-case working with uborange binds is recommended, or mixing the two approaches: indexing for matrices, but regular ubo bind range for material data (especially when the draws can be sorted by materials). 
+We can see that the "token" techniques do very well and are never CPU-bound, but also the "indexedmdi" technique is quite good. This technique is especially useful for very high frequency parametrs, for example when rendering "id-buffers" for selection, but also matrix indices. For the general use-case working with uborange binds is recommended. 
 
 *shademode: solid with edges*
 
@@ -236,14 +235,9 @@ All files related to culling, best is to refer to the [gl occlusion cullling](ht
 These files contain helpers when using the NV_command_list extension, please check [gl commandlist basic](https://github.com/nvpro-samples/gl_commandlist_basic) for a smaller sample.
 
 ### Building
-Ideally clone this and other interesting [nvpro-samples](https://github.com/nvpro-samples) repositories into a common subdirectory. You will always need [shared_sources](https://github.com/nvpro-samples/shared_sources) and on Windows [shared_external](https://github.com/nvpro-samples/shared_external). The shared directories are searched either as subdirectory of the sample or one directory up. It is recommended to use the [build_all](https://github.com/nvpro-samples/build_all) cmake as entry point, it will also give you options to enable/disable individual samples when creating the solutions.
+Ideally clone this and other interesting [nvpro-samples](https://github.com/nvpro-samples) repositories into a common subdirectory. You will always need [shared_sources](https://github.com/nvpro-samples/shared_sources) and on Windows [shared_external](https://github.com/nvpro-samples/shared_external). The shared directories are searched either as subdirectory of the sample or one directory up.
 
-### Providing Pull Requests
-NVIDIA is happy to review and consider pull requests for merging into the main tree of the nvpro-samples for bug fixes and features. Before providing a pull request to NVIDIA, please note the following:
-
-* A pull request provided to this repo by a developer constitutes permission from the developer for NVIDIA to merge the provided changes or any NVIDIA modified version of these changes to the repo. NVIDIA may remove or change the code at any time and in any way deemed appropriate.
-* Not all pull requests can be or will be accepted. NVIDIA will close pull requests that it does not intend to merge.
-The modified files and any new files must include the unmodified NVIDIA copyright header seen at the top of all shipping files.
+If you are interested in multiple samples, you can use [build_all](https://github.com/nvpro-samples/build_all) CMAKE as entry point, it will also give you options to enable/disable individual samples when creating the solutions.
 
 ### Related Samples
 [gl commandlist basic](https://github.com/nvpro-samples/gl_commandlist_basic) illustrates the core principle of the NV_command_list extension.

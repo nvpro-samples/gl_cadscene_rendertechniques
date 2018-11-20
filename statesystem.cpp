@@ -1,27 +1,30 @@
-/*-----------------------------------------------------------------------
-  Copyright (c) 2014, NVIDIA. All rights reserved.
+/* Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions
-  are met:
-   * Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
-   * Neither the name of its contributors may be used to endorse 
-     or promote products derived from this software without specific
-     prior written permission.
-
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
-  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-  PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
-  OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
------------------------------------------------------------------------*/
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 #include "statesystem.hpp"
@@ -47,6 +50,7 @@ void StateSystem::ClipDistanceState::getGL()
 
 //////////////////////////////////////////////////////////////////////////
 
+#if STATESYSTEM_USE_DEPRECATED
 void StateSystem::AlphaStateDepr::applyGL() const
 {
   glAlphaFunc(mode,refvalue);
@@ -57,6 +61,7 @@ void StateSystem::AlphaStateDepr::getGL()
   glGetIntegerv(GL_ALPHA_TEST_FUNC,(GLint*)&mode);
   glGetFloatv(GL_ALPHA_TEST_REF, &refvalue);
 }
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -195,6 +200,7 @@ void StateSystem::RasterState::getGL()
 
 //////////////////////////////////////////////////////////////////////////
 
+#if STATESYSTEM_USE_DEPRECATED
 void StateSystem::RasterStateDepr::applyGL() const
 {
   glLineStipple(lineStippleFactor,lineStipplePattern);
@@ -209,6 +215,7 @@ void StateSystem::RasterStateDepr::getGL()
   glGetIntegerv(GL_LINE_STIPPLE_REPEAT,(GLint*)&lineStippleFactor);
   glGetIntegerv(GL_SHADE_MODEL,(GLint*)&shadeModel);
 }
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -576,7 +583,7 @@ void StateSystem::EnableState::getGL()
 }
 
 //////////////////////////////////////////////////////////////////////////
-
+#if STATESYSTEM_USE_DEPRECATED
 static GLenum s_stateEnumsDepr[StateSystem::NUM_STATEBITSDEPR] = {
   GL_ALPHA_TEST,
   GL_LINE_STIPPLE,
@@ -601,17 +608,21 @@ void StateSystem::EnableStateDepr::getGL()
     setBitState(stateBitsDepr,i, glIsEnabled(s_stateEnumsDepr[i]));
   }
 }
-
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
 void StateSystem::State::applyGL(bool coreonly, bool skipFboBinding) const
 {
   enable.applyGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!coreonly) enableDepr.applyGL();
+#endif
   program.applyGL();
   clip.applyGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!coreonly) alpha.applyGL();
+#endif
   blend.applyGL();
   depth.applyGL();
   stencil.applyGL();
@@ -619,7 +630,9 @@ void StateSystem::State::applyGL(bool coreonly, bool skipFboBinding) const
   primitive.applyGL();
   sample.applyGL();
   raster.applyGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!coreonly) rasterDepr.applyGL();
+#endif
   /*if (!isBitSet(dynamicState,DYNAMIC_VIEWPORT)){
     viewport.applyGL();
   }*/
@@ -638,10 +651,14 @@ void StateSystem::State::applyGL(bool coreonly, bool skipFboBinding) const
 void StateSystem::State::getGL(bool coreonly)
 {
   enable.getGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!coreonly) enableDepr.applyGL();
+#endif
   program.getGL();
   clip.getGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!coreonly) alpha.applyGL();
+#endif
   blend.getGL();
   depth.getGL();
   stencil.getGL();
@@ -649,7 +666,9 @@ void StateSystem::State::getGL(bool coreonly)
   primitive.getGL();
   sample.getGL();
   raster.getGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!coreonly) rasterDepr.applyGL();
+#endif
   //viewport.getGL();
   depthrange.getGL();
   //scissor.getGL();
@@ -769,14 +788,18 @@ void StateSystem::applyDiffGL( const StateDiff& diff, const State &state, bool s
 {
   if (isBitSet(diff.changedContentBits,StateDiff::ENABLE))
     state.enable.applyGL(diff.changedStateBits);
+#if STATESYSTEM_USE_DEPRECATED
   if (!m_coreonly && isBitSet(diff.changedContentBits,StateDiff::ENABLE_DEPR))
     state.enableDepr.applyGL(diff.changedStateDeprBits);
+#endif
   if (isBitSet(diff.changedContentBits,StateDiff::PROGRAM))
     state.program.applyGL();
   if (isBitSet(diff.changedContentBits,StateDiff::CLIP))
     state.clip.applyGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!m_coreonly && isBitSet(diff.changedContentBits,StateDiff::ALPHA_DEPR))
     state.alpha.applyGL();
+#endif
   if (isBitSet(diff.changedContentBits,StateDiff::BLEND))
     state.blend.applyGL();
   if (isBitSet(diff.changedContentBits,StateDiff::DEPTH))
@@ -789,8 +812,10 @@ void StateSystem::applyDiffGL( const StateDiff& diff, const State &state, bool s
     state.primitive.applyGL();
   if (isBitSet(diff.changedContentBits,StateDiff::RASTER))
     state.raster.applyGL();
+#if STATESYSTEM_USE_DEPRECATED
   if (!m_coreonly && isBitSet(diff.changedContentBits,StateDiff::RASTER_DEPR))
     state.rasterDepr.applyGL();
+#endif
   /*if (isBitSet(diff.changedContentBits,StateDiff::VIEWPORT))
     state.viewport.applyGL();*/
   if (isBitSet(diff.changedContentBits,StateDiff::DEPTHRANGE))
@@ -818,21 +843,29 @@ void StateSystem::makeDiff( StateDiff& diff, const StateInternal &fromInternal, 
   const State &to   = toInternal.state;
 
   diff.changedStateBits     = from.enable.stateBits ^ to.enable.stateBits;
+#if STATESYSTEM_USE_DEPRECATED
   diff.changedStateDeprBits = from.enableDepr.stateBitsDepr ^ to.enableDepr.stateBitsDepr;
+#endif
   diff.changedContentBits   = 0;
   
   if (memcmp(&from.enable         ,&to.enable         ,sizeof(from.enable         )) != 0) setBit(diff.changedContentBits,StateDiff::ENABLE);
+#if STATESYSTEM_USE_DEPRECATED
   if (memcmp(&from.enableDepr     ,&to.enableDepr     ,sizeof(from.enableDepr     )) != 0) setBit(diff.changedContentBits,StateDiff::ENABLE_DEPR);
+#endif
   if (memcmp(&from.program        ,&to.program        ,sizeof(from.program        )) != 0) setBit(diff.changedContentBits,StateDiff::PROGRAM);
   if (memcmp(&from.clip           ,&to.clip           ,sizeof(from.clip           )) != 0) setBit(diff.changedContentBits,StateDiff::CLIP);
+#if STATESYSTEM_USE_DEPRECATED
   if (memcmp(&from.alpha          ,&to.alpha          ,sizeof(from.alpha          )) != 0) setBit(diff.changedContentBits,StateDiff::ALPHA_DEPR);
+#endif
   if (memcmp(&from.blend          ,&to.blend          ,sizeof(from.blend          )) != 0) setBit(diff.changedContentBits,StateDiff::BLEND);
   if (memcmp(&from.depth          ,&to.depth          ,sizeof(from.depth          )) != 0) setBit(diff.changedContentBits,StateDiff::DEPTH);
   if (memcmp(&from.stencil        ,&to.stencil        ,sizeof(from.stencil        )) != 0) setBit(diff.changedContentBits,StateDiff::STENCIL);
   if (memcmp(&from.logic          ,&to.logic          ,sizeof(from.logic          )) != 0) setBit(diff.changedContentBits,StateDiff::LOGIC);
   if (memcmp(&from.primitive      ,&to.primitive      ,sizeof(from.primitive      )) != 0) setBit(diff.changedContentBits,StateDiff::PRIMITIVE);
   if (memcmp(&from.raster         ,&to.raster         ,sizeof(from.raster         )) != 0) setBit(diff.changedContentBits,StateDiff::RASTER);
+#if STATESYSTEM_USE_DEPRECATED
   if (memcmp(&from.rasterDepr     ,&to.rasterDepr     ,sizeof(from.rasterDepr     )) != 0) setBit(diff.changedContentBits,StateDiff::RASTER_DEPR);
+#endif
   //if (memcmp(&from.viewport       ,&to.viewport       ,sizeof(from.viewport       )) != 0) setBit(diff.changedContentBits,StateDiff::VIEWPORT);
   if (memcmp(&from.depth          ,&to.depth          ,sizeof(from.depth          )) != 0) setBit(diff.changedContentBits,StateDiff::DEPTHRANGE);
   //if (memcmp(&from.scissor        ,&to.scissor        ,sizeof(from.scissor        )) != 0) setBit(diff.changedContentBits,StateDiff::SCISSOR);

@@ -1,27 +1,30 @@
-/*-----------------------------------------------------------------------
-  Copyright (c) 2014, NVIDIA. All rights reserved.
+/* Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions
-  are met:
-   * Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
-   * Neither the name of its contributors may be used to endorse 
-     or promote products derived from this software without specific
-     prior written permission.
-
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
-  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-  PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
-  OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
------------------------------------------------------------------------*/
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 #include "cadscene.hpp"
@@ -85,8 +88,8 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
   }
 
-  glGenBuffers(1,&m_materialsGL);
-  glNamedBufferStorageEXT(m_materialsGL, sizeof(Material) * m_materials.size(), &m_materials[0], 0);
+  glCreateBuffers(1,&m_materialsGL);
+  glNamedBufferStorage(m_materialsGL, sizeof(Material) * m_materials.size(), &m_materials[0], 0);
   //glMapNamedBufferRange(m_materialsGL, 0, sizeof(Material) * m_materials.size(), GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT);
 
   // geometry
@@ -126,8 +129,8 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
     geom.vboSize = sizeof(Vertex) * vertices.size();
 
-    glGenBuffers(1,&geom.vboGL);
-    glNamedBufferStorageEXT(geom.vboGL,geom.vboSize, &vertices[0], 0);
+    glCreateBuffers(1,&geom.vboGL);
+    glNamedBufferStorage(geom.vboGL,geom.vboSize, &vertices[0], 0);
 
     std::vector<GLuint> indices(csfgeom->numIndexSolid + csfgeom->numIndexWire);
     memcpy(&indices[0],csfgeom->indexSolid, sizeof(GLuint) * csfgeom->numIndexSolid);
@@ -137,10 +140,10 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
     geom.iboSize = sizeof(GLuint) * indices.size();
 
-    glGenBuffers(1,&geom.iboGL);
-    glNamedBufferStorageEXT(geom.iboGL, geom.iboSize, &indices[0], 0);
+    glCreateBuffers(1,&geom.iboGL);
+    glNamedBufferStorage(geom.iboGL, geom.iboSize, &indices[0], 0);
 
-    if (GLEW_NV_vertex_buffer_unified_memory){
+    if (has_GL_NV_vertex_buffer_unified_memory){
       glGetNamedBufferParameterui64vNV(geom.vboGL, GL_BUFFER_GPU_ADDRESS_NV, &geom.vboADDR);
       glMakeNamedBufferResidentNV(geom.vboGL, GL_READ_ONLY);
 
@@ -177,13 +180,13 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
       geom.cloneIdx = n;
     #else
       geom.cloneIdx = -1;
-      glGenBuffers(1,&geom.vboGL);
-      glNamedBufferStorageEXT(geom.vboGL,geom.vboSize, 0, 0);
+      glCreateBuffers(1,&geom.vboGL);
+      glNamedBufferStorage(geom.vboGL,geom.vboSize, 0, 0);
 
-      glGenBuffers(1,&geom.iboGL);
-      glNamedBufferStorageEXT(geom.iboGL,geom.iboSize, 0, 0);
+      glCreateBuffers(1,&geom.iboGL);
+      glNamedBufferStorage(geom.iboGL,geom.iboSize, 0, 0);
       
-      if (GLEW_NV_vertex_buffer_unified_memory){
+      if (has_GL_NV_vertex_buffer_unified_memory){
         glGetNamedBufferParameterui64vNV(geom.vboGL, GL_BUFFER_GPU_ADDRESS_NV, &geom.vboADDR);
         glMakeNamedBufferResidentNV(geom.vboGL, GL_READ_ONLY);
 
@@ -191,17 +194,17 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
         glMakeNamedBufferResidentNV(geom.iboGL, GL_READ_ONLY);
       }
 
-      glNamedCopyBufferSubDataEXT(geomorig.vboGL, geom.vboGL, 0, 0, geom.vboSize);
-      glNamedCopyBufferSubDataEXT(geomorig.iboGL, geom.iboGL, 0, 0, geom.iboSize);
+      glCopyNamedBufferSubData(geomorig.vboGL, geom.vboGL, 0, 0, geom.vboSize);
+      glCopyNamedBufferSubData(geomorig.iboGL, geom.iboGL, 0, 0, geom.iboSize);
     #endif
     }
   }
 
 
-  glGenBuffers(1,&m_geometryBboxesGL);
-  glNamedBufferStorageEXT(m_geometryBboxesGL,sizeof(BBox) * m_geometryBboxes.size(), &m_geometryBboxes[0], 0);
-  glGenTextures(1, &m_geometryBboxesTexGL);
-  glTextureBufferEXT(m_geometryBboxesTexGL, GL_TEXTURE_BUFFER, GL_RGBA32F, m_geometryBboxesGL);
+  glCreateBuffers(1,&m_geometryBboxesGL);
+  glNamedBufferStorage(m_geometryBboxesGL,sizeof(BBox) * m_geometryBboxes.size(), &m_geometryBboxes[0], 0);
+  glCreateTextures(GL_TEXTURE_BUFFER, 1, &m_geometryBboxesTexGL);
+  glTextureBuffer(m_geometryBboxesTexGL, GL_RGBA32F, m_geometryBboxesGL);
   
   // nodes
   int numObjects  = 0;
@@ -377,26 +380,26 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
   }
 
-  glGenBuffers(1,&m_matricesGL);
-  glNamedBufferStorageEXT(m_matricesGL, sizeof(MatrixNode) * m_matrices.size(), &m_matrices[0], 0);
+  glCreateBuffers(1,&m_matricesGL);
+  glNamedBufferStorage(m_matricesGL, sizeof(MatrixNode) * m_matrices.size(), &m_matrices[0], 0);
   //glMapNamedBufferRange(m_matricesGL, 0, sizeof(MatrixNode) * m_matrices.size(), GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT);
   
-  glGenTextures(1,&m_matricesTexGL);
-  glTextureBufferEXT(m_matricesTexGL, GL_TEXTURE_BUFFER, GL_RGBA32F, m_matricesGL);
+  glCreateTextures(GL_TEXTURE_BUFFER, 1, &m_matricesTexGL);
+  glTextureBuffer(m_matricesTexGL, GL_RGBA32F, m_matricesGL);
 
-  glGenBuffers(1,&m_objectAssignsGL);
-  glNamedBufferStorageEXT(m_objectAssignsGL,sizeof(nv_math::vec2i) * m_objectAssigns.size(), &m_objectAssigns[0], 0);
+  glCreateBuffers(1,&m_objectAssignsGL);
+  glNamedBufferStorage(m_objectAssignsGL,sizeof(nv_math::vec2i) * m_objectAssigns.size(), &m_objectAssigns[0], 0);
 
-  if (GLEW_NV_vertex_buffer_unified_memory){
+  if (has_GL_NV_vertex_buffer_unified_memory){
     glGetNamedBufferParameterui64vNV(m_materialsGL, GL_BUFFER_GPU_ADDRESS_NV, &m_materialsADDR);
     glMakeNamedBufferResidentNV(m_materialsGL, GL_READ_ONLY);
 
     glGetNamedBufferParameterui64vNV(m_matricesGL, GL_BUFFER_GPU_ADDRESS_NV, &m_matricesADDR);
     glMakeNamedBufferResidentNV(m_matricesGL, GL_READ_ONLY);
 
-    if (GLEW_NV_bindless_texture){
-      m_matricesTexGLADDR = glGetTextureHandleNV(m_matricesTexGL);
-      glMakeTextureHandleResidentNV(m_matricesTexGLADDR);
+    if (has_GL_ARB_bindless_texture){
+      m_matricesTexGLADDR = glGetTextureHandleARB(m_matricesTexGL);
+      glMakeTextureHandleResidentARB(m_matricesTexGLADDR);
     }
   }
 
@@ -410,13 +413,13 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
     m_nodeTree.addToTree( (NodeTree::nodeID)root );
   }
 
-  glGenBuffers(1,&m_parentIDsGL);
-  glNamedBufferStorageEXT(m_parentIDsGL, m_nodeTree.getTreeCompactNodes().size() * sizeof(GLuint), &m_nodeTree.getTreeCompactNodes()[0], 0);
+  glCreateBuffers(1,&m_parentIDsGL);
+  glNamedBufferStorage(m_parentIDsGL, m_nodeTree.getTreeCompactNodes().size() * sizeof(GLuint), &m_nodeTree.getTreeCompactNodes()[0], 0);
 
-  glGenBuffers(1,&m_matricesOrigGL);
-  glNamedBufferStorageEXT(m_matricesOrigGL, sizeof(MatrixNode) * m_matrices.size(), &m_matrices[0], 0);
-  glGenTextures(1,&m_matricesOrigTexGL);
-  glTextureBufferEXT(m_matricesOrigTexGL, GL_TEXTURE_BUFFER, GL_RGBA32F, m_matricesOrigGL);
+  glCreateBuffers(1,&m_matricesOrigGL);
+  glNamedBufferStorage(m_matricesOrigGL, sizeof(MatrixNode) * m_matrices.size(), &m_matrices[0], 0);
+  glCreateTextures(GL_TEXTURE_BUFFER,1,&m_matricesOrigTexGL);
+  glTextureBuffer(m_matricesOrigTexGL, GL_RGBA32F, m_matricesOrigGL);
   
   CSFileMemory_delete(mem);
   return true;
@@ -551,9 +554,9 @@ void CadScene::unload()
 
   glFinish();
 
-  if (GLEW_NV_vertex_buffer_unified_memory){
-    if (GLEW_NV_bindless_texture){
-      glMakeTextureHandleNonResidentNV(m_matricesTexGLADDR);
+  if (has_GL_NV_vertex_buffer_unified_memory){
+    if (has_GL_ARB_bindless_texture){
+      glMakeTextureHandleNonResidentARB(m_matricesTexGLADDR);
     }
 
     glMakeNamedBufferNonResidentNV(m_matricesGL);
@@ -576,7 +579,7 @@ void CadScene::unload()
   {
     if (m_geometry[i].cloneIdx >= 0) continue;
     
-    if (GLEW_NV_vertex_buffer_unified_memory){
+    if (has_GL_NV_vertex_buffer_unified_memory){
       glMakeNamedBufferNonResidentNV(m_geometry[i].iboGL);
       glMakeNamedBufferNonResidentNV(m_geometry[i].vboGL);
     }
@@ -597,7 +600,7 @@ void CadScene::unload()
 
 void CadScene::resetMatrices()
 {
-  glNamedCopyBufferSubDataEXT(m_matricesOrigGL, m_matricesGL, 0, 0, sizeof(CadScene::MatrixNode) * m_matrices.size());
+  glCopyNamedBufferSubData(m_matricesOrigGL, m_matricesGL, 0, 0, sizeof(CadScene::MatrixNode) * m_matrices.size());
 }
 
 

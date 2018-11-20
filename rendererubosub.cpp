@@ -1,27 +1,30 @@
-/*-----------------------------------------------------------------------
-  Copyright (c) 2014, NVIDIA. All rights reserved.
+/* Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions
-  are met:
-   * Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
-   * Neither the name of its contributors may be used to endorse 
-     or promote products derived from this software without specific
-     prior written permission.
-
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
-  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-  PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
-  OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
------------------------------------------------------------------------*/
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 #include <assert.h>
@@ -64,7 +67,7 @@ namespace csfviewer
     {
       bool isAvailable() const
       {
-        return !!GLEW_NV_vertex_buffer_unified_memory;
+        return !!has_GL_NV_vertex_buffer_unified_memory;
       }
       const char* name() const
       {
@@ -106,7 +109,7 @@ namespace csfviewer
     {
       bool isAvailable() const
       {
-        return !!GLEW_NV_vertex_buffer_unified_memory;
+        return !!has_GL_NV_vertex_buffer_unified_memory;
       }
       const char* name() const
       {
@@ -166,10 +169,10 @@ namespace csfviewer
     }
 
     m_scene = scene;
-    glGenBuffers(1,&m_streamMatrix);
-    glGenBuffers(1,&m_streamMaterial);
-    glNamedBufferDataEXT( m_streamMatrix, sizeof(CadScene::MatrixNode), NULL, GL_STREAM_DRAW);
-    glNamedBufferDataEXT( m_streamMaterial, sizeof(CadScene::Material), NULL, GL_STREAM_DRAW);
+    glCreateBuffers(1,&m_streamMatrix);
+    glCreateBuffers(1,&m_streamMaterial);
+    glNamedBufferData( m_streamMatrix, sizeof(CadScene::MatrixNode), NULL, GL_STREAM_DRAW);
+    glNamedBufferData( m_streamMaterial, sizeof(CadScene::Material), NULL, GL_STREAM_DRAW);
   }
 
   void RendererUboSub::deinit()
@@ -243,12 +246,12 @@ namespace csfviewer
         }
 
         if (lastMatrix != di.matrixIndex){
-          glNamedBufferSubDataEXT(m_streamMatrix, 0, sizeof(CadScene::MatrixNode), &scene->m_matrices[di.matrixIndex]);
+          glNamedBufferSubData(m_streamMatrix, 0, sizeof(CadScene::MatrixNode), &scene->m_matrices[di.matrixIndex]);
           lastMatrix = di.matrixIndex;
         }
 
         if (lastMaterial != di.materialIndex){
-          glNamedBufferSubDataEXT(m_streamMaterial, 0, sizeof(CadScene::Material), &scene->m_materials[di.materialIndex]);
+          glNamedBufferSubData(m_streamMaterial, 0, sizeof(CadScene::Material), &scene->m_materials[di.materialIndex]);
           lastMaterial = di.materialIndex;
         }
 

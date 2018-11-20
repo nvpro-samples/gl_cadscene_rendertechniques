@@ -42,7 +42,7 @@ namespace csfviewer
 
   bool TokenRendererBase::hasNativeCommandList()
   {
-    return !!init_NV_command_list(NVPWindow::sysGetProcAddress);
+    return has_GL_NV_command_list;
   }
 
   void TokenRendererBase::init(bool bindlessUbo, bool bindlessVbo)
@@ -92,17 +92,17 @@ namespace csfviewer
 
     nvtokenGetStats(&m_tokenStreams[shadeType][sc.offsets[0]], size, stats);
 
-    printf("type: %s\n",toString(shadeType));
-    printf("commandsize: %d\n",size);
-    printf("state toggles: %d\n", num);
-    printf("tokens:\n");
+    LOGI("type: %s\n",toString(shadeType));
+    LOGI("commandsize: %d\n",size);
+    LOGI("state toggles: %d\n", num);
+    LOGI("tokens:\n");
     for (int i = 0; i < NVTOKEN_TYPES; i++){
       const char* what = nvtokenCommandToString(i);
       if (what && stats[i]){
-        printf("%s:\t %6d\n", what,stats[i]);
+        LOGI("%s:\t %6d\n", what,stats[i]);
       }
     }
-    printf("\n");
+    LOGI("\n");
   }
 
   void TokenRendererBase::finalize(const Resources &resources, bool fillBuffers)
@@ -132,10 +132,10 @@ namespace csfviewer
       }
     }
 
-    glGenBuffers(NUM_SHADES,m_tokenBuffers);
+    glCreateBuffers(NUM_SHADES,m_tokenBuffers);
     if (m_hwsupport && fillBuffers){
       for (int i = 0; i < NUM_SHADES; i++){
-        glNamedBufferStorageEXT(m_tokenBuffers[i],m_tokenStreams[i].size(), &m_tokenStreams[i][0], 0);
+        glNamedBufferStorage(m_tokenBuffers[i],m_tokenStreams[i].size(), &m_tokenStreams[i][0], 0);
         if (m_useaddress){
           glGetNamedBufferParameterui64vNV(m_tokenBuffers[i], GL_BUFFER_GPU_ADDRESS_NV, &m_tokenAddresses[i]);
           glMakeNamedBufferResidentNV(m_tokenBuffers[i], GL_READ_ONLY);

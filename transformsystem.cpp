@@ -1,33 +1,36 @@
-/*-----------------------------------------------------------------------
-  Copyright (c) 2014, NVIDIA. All rights reserved.
+/* Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions
-  are met:
-   * Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
-   * Neither the name of its contributors may be used to endorse 
-     or promote products derived from this software without specific
-     prior written permission.
-
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
-  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-  PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
-  OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
------------------------------------------------------------------------*/
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 #include <assert.h>
 
 #include "transformsystem.hpp"
-
+#include <nv_helpers_gl/base_gl.hpp>
 
 void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& matricesObject, Buffer& matricesWorld )
 {
@@ -42,13 +45,13 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
   glTextureBufferEXT(m_texsGL[TEXTURE_OBJECT],GL_TEXTURE_BUFFER, GL_RGBA32F, matricesObject.buffer);
   glTextureBufferEXT(m_texsGL[TEXTURE_WORLD], GL_TEXTURE_BUFFER, GL_RGBA32F, matricesWorld.buffer);
 #else
-  glTextureBufferRangeEXT(m_texsGL[TEXTURE_IDS],   GL_TEXTURE_BUFFER, GL_R32I,    ids.buffer, ids.offset, ids.size);
-  glTextureBufferRangeEXT(m_texsGL[TEXTURE_OBJECT],GL_TEXTURE_BUFFER, GL_RGBA32F, matricesObject.buffer, matricesObject.offset, matricesObject.size);
-  glTextureBufferRangeEXT(m_texsGL[TEXTURE_WORLD], GL_TEXTURE_BUFFER, GL_RGBA32F, matricesWorld.buffer,  matricesWorld.offset,  matricesWorld.size);
+  glTextureBufferRange(m_texsGL[TEXTURE_IDS],     GL_R32I, ids.buffer, ids.offset, ids.size);
+  glTextureBufferRange(m_texsGL[TEXTURE_OBJECT],  GL_RGBA32F, matricesObject.buffer, matricesObject.offset, matricesObject.size);
+  glTextureBufferRange(m_texsGL[TEXTURE_WORLD],   GL_RGBA32F, matricesWorld.buffer, matricesWorld.offset, matricesWorld.size);
 #endif
 
   for (int i = 0; i < TEXTURES; i++){
-    glBindMultiTextureEXT(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, m_texsGL[i]);
+    nv_helpers_gl::bindMultiTexture(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, m_texsGL[i]);
   }
 
   matricesWorld.BindBufferRange(GL_SHADER_STORAGE_BUFFER,0);
@@ -114,7 +117,7 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER,2,0);
 
   for (int i = 0; i < TEXTURES; i++){
-    glBindMultiTextureEXT(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, 0);
+    nv_helpers_gl::bindMultiTexture(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, 0);
   }
   
 }
@@ -122,8 +125,8 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
 void TransformSystem::init( const Programs &programs )
 {
   m_programs = programs;
-  glGenBuffers(1,&m_scratchGL);
-  glGenTextures(TEXTURES,m_texsGL);
+  glCreateBuffers(1,&m_scratchGL);
+  glCreateTextures(GL_TEXTURE_BUFFER, TEXTURES, m_texsGL);
 }
 
 void TransformSystem::deinit()

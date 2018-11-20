@@ -26,17 +26,23 @@
 
 #define DEBUG_FILTER     1
 
-#include <GL/glew.h>
-#include <nv_helpers/anttweakbar.hpp>
-#include <nv_helpers_gl/WindowProfiler.hpp>
-#include <nv_math/nv_math_glsltypes.h>
+#include <nv_helpers_gl/extensions_gl.hpp>
 
-#include <nv_helpers_gl/error.hpp>
-#include <nv_helpers_gl/programmanager.hpp>
+#include <imgui/imgui_helper.h>
+#include <imgui/imgui_impl_gl.h>
+
+#include <nv_math/nv_math_glsltypes.h>
+#include <nv_helpers_gl/glsltypes_gl.hpp>
+
 #include <nv_helpers/geometry.hpp>
 #include <nv_helpers/misc.hpp>
-#include <nv_helpers_gl/glresources.hpp>
 #include <nv_helpers/cameracontrol.hpp>
+#include <nv_helpers/tnulled.hpp>
+
+#include <nv_helpers_gl/appwindowprofiler_gl.hpp>
+#include <nv_helpers_gl/error_gl.hpp>
+#include <nv_helpers_gl/programmanager_gl.hpp>
+#include <nv_helpers_gl/base_gl.hpp>
 
 #include "transformsystem.hpp"
 
@@ -56,15 +62,20 @@ namespace csfviewer
   int const SAMPLE_SIZE_WIDTH(800);
   int const SAMPLE_SIZE_HEIGHT(600);
   int const SAMPLE_MAJOR_VERSION(4);
-  int const SAMPLE_MINOR_VERSION(3);
+  int const SAMPLE_MINOR_VERSION(5);
 
  
-  class Sample : public nv_helpers_gl::WindowProfiler 
+  class Sample : public nv_helpers_gl::AppWindowProfilerGL 
   {
   public:
 
-    ProgramManager progManager;
-    
+    enum GuiEnums {
+      GUI_RENDERER,
+      GUI_MSAA,
+      GUI_SHADE,
+      GUI_STRATEGY,
+    };
+
     struct {
       ProgramManager::ProgramID
         draw_object,
@@ -94,13 +105,13 @@ namespace csfviewer
     } programs;
 
     struct {
-      ResourceGLuint
+      nv_helpers::TNulled<GLuint>
         scene,
         scene2;
     } fbos;
 
     struct {
-      ResourceGLuint  
+      nv_helpers::TNulled<GLuint>
         scene_ubo;
     } buffers;
 
@@ -110,7 +121,7 @@ namespace csfviewer
     } addresses;
 
     struct {
-      ResourceGLuint
+      nv_helpers::TNulled<GLuint>
         scene_color,
         scene_color2,
         scene_depthstencil,
@@ -118,53 +129,42 @@ namespace csfviewer
     } textures;
 
     struct Tweak {
-      int           renderer;
-      ShadeType     shade;
-      Strategy      strategy;
-      int           clones;
-      int           cloneaxisX;
-      int           cloneaxisY;
-      int           cloneaxisZ;
-      bool          animateActive;
-      float         animateMin;
-      float         animateDelta;
-      int           zoom;
-      int           msaa;
-      bool          noUI;
-
-      Tweak() 
-        : renderer(0)
-        , shade(SHADE_SOLID)
-        , strategy(STRATEGY_GROUPS)
-        , clones(0)
-        , cloneaxisX(1)
-        , cloneaxisY(1)
-        , cloneaxisZ(0)
-        , animateActive(false)
-        , animateMin(1)
-        , animateDelta(1)
-        , zoom(100)
-        , msaa(0)
-        , noUI(false)
-      {}
+      int           renderer = 0;
+      ShadeType     shade = SHADE_SOLID;
+      Strategy      strategy = STRATEGY_GROUPS;
+      int           clones = 0;
+      bool          cloneaxisX = true;
+      bool          cloneaxisY = true;
+      bool          cloneaxisZ = false;
+      bool          animateActive = false;
+      float         animateMin = 1;
+      float         animateDelta = 1;
+      int           zoom = 100;
+      int           msaa = 0;
+      bool          noUI = false;
     };
 
-    Tweak                 tweak;
-    Tweak                 lastTweak;
+    ProgramManager        m_progManager;
 
-    SceneData             sceneUbo;
-    CadScene              cadscene;
-    TransformSystem       transformSystem;
-    GLuint                xplodeGroupSize;
+    ImGuiH::Registry      m_ui;
+    double                m_uiTime = 0;
 
+    Tweak                 m_tweak;
+    Tweak                 m_lastTweak;
 
-    std::vector<unsigned int>  sortedRenderers;
+    std::string           m_modelFilename;
 
-    Renderer* NV_RESTRICT  renderer;
-    Resources             resources;
+    SceneData             m_sceneUbo;
+    CadScene              m_scene;
+    TransformSystem       m_transformSystem;
 
-    std::string           filename;
-    size_t                stateIncarnation;
+    GLuint                m_xplodeGroupSize;
+
+    std::vector<unsigned int>   m_renderersSorted;
+    Renderer* NV_RESTRICT       m_renderer;
+    Resources                   m_resources;
+
+    size_t                m_stateIncarnation;
 
 
     void updateProgramDefine();
@@ -190,30 +190,35 @@ namespace csfviewer
     void parse(int argc, const char**argv);
 
     bool begin();
+    void processUI(double time);
     void think(double time);
     void resize(int width, int height);
 
     CameraControl m_control;
 
     void end() {
-      TwTerminate();
+      ImGui::ShutdownGL();
     }
     // return true to prevent m_window updates
-    bool mouse_pos    (int x, int y) {
-      if (tweak.noUI) return false;
-      return !!TwEventMousePosGLFW(x,y); 
+    bool mouse_pos(int x, int y) {
+      if (m_tweak.noUI) return false;
+      return ImGuiH::mouse_pos(x, y);
     }
-    bool mouse_button (int button, int action) {
-      if (tweak.noUI) return false;
-      return !!TwEventMouseButtonGLFW(button, action);
+    bool mouse_button(int button, int action) {
+      if (m_tweak.noUI) return false;
+      return ImGuiH::mouse_button(button, action);
     }
-    bool mouse_wheel  (int wheel) {
-      if (tweak.noUI) return false;
-      return !!TwEventMouseWheelGLFW(wheel); 
+    bool mouse_wheel(int wheel) {
+      if (m_tweak.noUI) return false;
+      return ImGuiH::mouse_wheel(wheel);
     }
-    bool key_button   (int button, int action, int mods) {
-      if (tweak.noUI) return false;
-      return handleTwKeyPressed(button,action,mods);
+    bool key_char(int button) {
+      if (m_tweak.noUI) return false;
+      return ImGuiH::key_char(button);
+    }
+    bool key_button(int button, int action, int mods) {
+      if (m_tweak.noUI) return false;
+      return ImGuiH::key_button(button, action, mods);
     }
     
   };
@@ -225,135 +230,136 @@ namespace csfviewer
 
   void Sample::getTransformPrograms( TransformSystem::Programs &xformPrograms)
   {
-    xformPrograms.transform_leaves = progManager.get( programs.transform_leaves );
-    xformPrograms.transform_level  = progManager.get( programs.transform_level );
+    xformPrograms.transform_leaves = m_progManager.get( programs.transform_leaves );
+    xformPrograms.transform_level  = m_progManager.get( programs.transform_level );
   }
 
   void Sample::getCullPrograms( CullingSystem::Programs &cullprograms )
   {
-    cullprograms.bit_regular      = progManager.get( programs.cull_bit_regular );
-    cullprograms.bit_temporallast = progManager.get( programs.cull_bit_temporallast );
-    cullprograms.bit_temporalnew  = progManager.get( programs.cull_bit_temporalnew );
-    cullprograms.depth_mips       = progManager.get( programs.cull_depth_mips );
-    cullprograms.object_frustum   = progManager.get( programs.cull_object_frustum );
-    cullprograms.object_hiz       = progManager.get( programs.cull_object_hiz );
-    cullprograms.object_raster    = progManager.get( programs.cull_object_raster );
+    cullprograms.bit_regular      = m_progManager.get( programs.cull_bit_regular );
+    cullprograms.bit_temporallast = m_progManager.get( programs.cull_bit_temporallast );
+    cullprograms.bit_temporalnew  = m_progManager.get( programs.cull_bit_temporalnew );
+    cullprograms.depth_mips       = m_progManager.get( programs.cull_depth_mips );
+    cullprograms.object_frustum   = m_progManager.get( programs.cull_object_frustum );
+    cullprograms.object_hiz       = m_progManager.get( programs.cull_object_hiz );
+    cullprograms.object_raster    = m_progManager.get( programs.cull_object_raster );
   }
 
   void Sample::getScanPrograms( ScanSystem::Programs &scanprograms )
   {
-    scanprograms.prefixsum  = progManager.get( programs.scan_prefixsum );
-    scanprograms.offsets    = progManager.get( programs.scan_offsets );
-    scanprograms.combine    = progManager.get( programs.scan_combine );
+    scanprograms.prefixsum  = m_progManager.get( programs.scan_prefixsum );
+    scanprograms.offsets    = m_progManager.get( programs.scan_offsets );
+    scanprograms.combine    = m_progManager.get( programs.scan_combine );
   }
 
   bool Sample::initProgram()
   {
     bool validated(true);
-    progManager.addDirectory( std::string(PROJECT_NAME));
-    progManager.addDirectory( sysExePath() + std::string(PROJECT_RELDIRECTORY));
-    progManager.addDirectory( std::string(PROJECT_ABSDIRECTORY));
+    m_progManager.m_filetype = ShaderFileManager::FILETYPE_GLSL;
+    m_progManager.addDirectory( std::string("GLSL_" PROJECT_NAME));
+    m_progManager.addDirectory( sysExePath() + std::string(PROJECT_RELDIRECTORY));
+    //m_progManager.addDirectory( std::string(PROJECT_ABSDIRECTORY));
 
-    progManager.registerInclude("common.h", "common.h");
+    m_progManager.registerInclude("common.h", "common.h");
 
     updateProgramDefine();
 
-    programs.draw_object = progManager.createProgram(
+    programs.draw_object = m_progManager.createProgram(
       ProgramManager::Definition(GL_VERTEX_SHADER,          "scene.vert.glsl"),
       ProgramManager::Definition(GL_FRAGMENT_SHADER,        "scene.frag.glsl"));
 
-    programs.draw_object_tris = progManager.createProgram(
+    programs.draw_object_tris = m_progManager.createProgram(
       ProgramManager::Definition(GL_VERTEX_SHADER,    "#define WIREMODE 0\n",  "scene.vert.glsl"),
       ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define WIREMODE 0\n",  "scene.frag.glsl"));
 
-    programs.draw_object_line = progManager.createProgram(
+    programs.draw_object_line = m_progManager.createProgram(
       ProgramManager::Definition(GL_VERTEX_SHADER,    "#define WIREMODE 1\n",  "scene.vert.glsl"),
       ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define WIREMODE 1\n",  "scene.frag.glsl"));
 
-    programs.draw_object_indexed = progManager.createProgram(
+    programs.draw_object_indexed = m_progManager.createProgram(
       ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n",  "scene.vert.glsl"),
       ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n",  "scene.frag.glsl"));
 
-    programs.draw_object_indexed_tris = progManager.createProgram(
+    programs.draw_object_indexed_tris = m_progManager.createProgram(
       ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n#define WIREMODE 0\n",  "scene.vert.glsl"),
       ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n#define WIREMODE 0\n",  "scene.frag.glsl"));
 
-    programs.draw_object_indexed_line = progManager.createProgram(
+    programs.draw_object_indexed_line = m_progManager.createProgram(
       ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n#define WIREMODE 1\n",  "scene.vert.glsl"),
       ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n#define WIREMODE 1\n",  "scene.frag.glsl"));
 
 
-    programs.cull_object_raster = progManager.createProgram(
+    programs.cull_object_raster = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,   "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.vert.glsl"),
       nv_helpers_gl::ProgramManager::Definition(GL_GEOMETRY_SHADER, "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.geo.glsl"),
       nv_helpers_gl::ProgramManager::Definition(GL_FRAGMENT_SHADER, "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.frag.glsl"));
 
-    programs.cull_object_frustum = progManager.createProgram(
+    programs.cull_object_frustum = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-xfb.vert.glsl"));
 
-    programs.cull_object_hiz = progManager.createProgram(
+    programs.cull_object_hiz = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define DUALINDEX 1\n#define MATRICES 4\n#define OCCLUSION\n", "cull-xfb.vert.glsl"));
 
-    programs.cull_bit_regular = progManager.createProgram(
+    programs.cull_bit_regular = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL 0\n", "cull-bitpack.vert.glsl"));
-    programs.cull_bit_temporallast = progManager.createProgram(
+    programs.cull_bit_temporallast = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL TEMPORAL_LAST\n", "cull-bitpack.vert.glsl"));
-    programs.cull_bit_temporalnew = progManager.createProgram(
+    programs.cull_bit_temporalnew = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL TEMPORAL_NEW\n", "cull-bitpack.vert.glsl"));
 
-    programs.cull_depth_mips = progManager.createProgram(
+    programs.cull_depth_mips = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,   "cull-downsample.vert.glsl"),
       nv_helpers_gl::ProgramManager::Definition(GL_FRAGMENT_SHADER, "cull-downsample.frag.glsl"));
 
-    programs.scan_prefixsum = progManager.createProgram(
+    programs.scan_prefixsum = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_SUM\n", "scan.comp.glsl"));
-    programs.scan_offsets = progManager.createProgram(
+    programs.scan_offsets = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_OFFSETS\n", "scan.comp.glsl"));
-    programs.scan_combine = progManager.createProgram(
+    programs.scan_combine = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_COMBINE\n", "scan.comp.glsl"));
 
-    programs.transform_leaves = progManager.createProgram(
+    programs.transform_leaves = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "transform-leaves.comp.glsl"));
-    programs.transform_level = progManager.createProgram(
+    programs.transform_level = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "transform-level.comp.glsl"));
 
-    programs.xplode = progManager.createProgram(
+    programs.xplode = m_progManager.createProgram(
       nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "xplode-animation.comp.glsl"));
 
-    validated = progManager.areProgramsValid();
+    validated = m_progManager.areProgramsValid();
 
     return validated;
   }
 
   bool Sample::initScene(const char* filename, int clones, int cloneaxis)
   {
-    cadscene.unload();
+    m_scene.unload();
 
-    if (buffers.scene_ubo && GLEW_NV_shader_buffer_load){
+    if (buffers.scene_ubo && has_GL_NV_shader_buffer_load){
       glMakeNamedBufferNonResidentNV(buffers.scene_ubo);
     }
 
     newBuffer(buffers.scene_ubo);
-    glNamedBufferStorageEXT(buffers.scene_ubo, sizeof(SceneData), NULL, GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(buffers.scene_ubo, sizeof(SceneData), NULL, GL_DYNAMIC_STORAGE_BIT);
 
-    if (GLEW_NV_shader_buffer_load){
+    if (has_GL_NV_shader_buffer_load){
       glGetNamedBufferParameterui64vNV(buffers.scene_ubo, GL_BUFFER_GPU_ADDRESS_NV, &addresses.scene_ubo);
       glMakeNamedBufferResidentNV(buffers.scene_ubo,GL_READ_ONLY);
     }
 
-    resources.sceneUbo  = buffers.scene_ubo;
-    resources.sceneAddr = addresses.scene_ubo;
+    m_resources.sceneUbo  = buffers.scene_ubo;
+    m_resources.sceneAddr = addresses.scene_ubo;
 
-    resources.stateIncarnation++;
+    m_resources.stateIncarnation++;
 
-    bool status = cadscene.loadCSF(filename, clones, cloneaxis);
+    bool status = m_scene.loadCSF(filename, clones, cloneaxis);
 
-    printf("\nscene %s\n", filename);
-    printf("geometries: %6d\n", cadscene.m_geometry.size());
-    printf("materials:  %6d\n", cadscene.m_materials.size());
-    printf("nodes:      %6d\n", cadscene.m_matrices.size());
-    printf("objects:    %6d\n", cadscene.m_objects.size());
-    printf("\n");
+    LOGI("\nscene %s\n", filename);
+    LOGI("geometries: %6d\n", (uint32_t)m_scene.m_geometry.size());
+    LOGI("materials:  %6d\n", (uint32_t)m_scene.m_materials.size());
+    LOGI("nodes:      %6d\n", (uint32_t)m_scene.m_matrices.size());
+    LOGI("objects:    %6d\n", (uint32_t)m_scene.m_objects.size());
+    LOGI("\n");
 
     return status;
   }
@@ -362,87 +368,87 @@ namespace csfviewer
   {
     bool layered = true;
    
-    if (!fbos.scene || tweak.msaa != lastTweak.msaa)
+    if (!fbos.scene || m_tweak.msaa != m_lastTweak.msaa)
     {
       newFramebuffer(fbos.scene);
       newFramebuffer(fbos.scene2);
 
-      resources.fbo = fbos.scene;
-      resources.fbo2 = fbos.scene2;
+      m_resources.fbo = fbos.scene;
+      m_resources.fbo2 = fbos.scene2;
 
-      resources.stateIncarnation++;
+      m_resources.stateIncarnation++;
     }
 
     if (layered){
 
-      if (GLEW_NV_bindless_texture && textures.scene_color){
+      if (has_GL_NV_bindless_texture && textures.scene_color){
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_color));
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_depthstencil));
       }
 
-      newTexture(textures.scene_color);
-      newTexture(textures.scene_depthstencil);
+      newTexture(textures.scene_color, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY);
+      newTexture(textures.scene_depthstencil, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY);
 
-      if (tweak.msaa){
-        glTextureStorage3DMultisampleEXT(textures.scene_color,        GL_TEXTURE_2D_MULTISAMPLE_ARRAY, tweak.msaa, GL_RGBA8, width, height, 2, GL_TRUE);
-        glTextureStorage3DMultisampleEXT(textures.scene_depthstencil, GL_TEXTURE_2D_MULTISAMPLE_ARRAY, tweak.msaa, GL_DEPTH24_STENCIL8, width, height, 2, GL_TRUE);
+      if (m_tweak.msaa){
+        glTextureStorage3DMultisample(textures.scene_color,        m_tweak.msaa, GL_RGBA8, width, height, 2, GL_TRUE);
+        glTextureStorage3DMultisample(textures.scene_depthstencil, m_tweak.msaa, GL_DEPTH24_STENCIL8, width, height, 2, GL_TRUE);
       }
       else{
-        glTextureStorage3DEXT(textures.scene_color, GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, width, height,2);
-        glTextureStorage3DEXT(textures.scene_depthstencil, GL_TEXTURE_2D_ARRAY, 1, GL_DEPTH24_STENCIL8, width, height,2);
+        glTextureStorage3D(textures.scene_color,         1, GL_RGBA8, width, height,2);
+        glTextureStorage3D(textures.scene_depthstencil,  1, GL_DEPTH24_STENCIL8, width, height,2);
       }
 
-      glNamedFramebufferTextureLayerEXT(fbos.scene, GL_COLOR_ATTACHMENT0,     textures.scene_color, 0,0);
-      glNamedFramebufferTextureLayerEXT(fbos.scene, GL_DEPTH_STENCIL_ATTACHMENT, textures.scene_depthstencil, 0,0);
+      glNamedFramebufferTextureLayer(fbos.scene, GL_COLOR_ATTACHMENT0,        textures.scene_color, 0,0);
+      glNamedFramebufferTextureLayer(fbos.scene, GL_DEPTH_STENCIL_ATTACHMENT, textures.scene_depthstencil, 0,0);
 
-      glNamedFramebufferTextureLayerEXT(fbos.scene2, GL_COLOR_ATTACHMENT0,     textures.scene_color, 0,1);
-      glNamedFramebufferTextureLayerEXT(fbos.scene2, GL_DEPTH_STENCIL_ATTACHMENT, textures.scene_depthstencil, 0,1);
+      glNamedFramebufferTextureLayer(fbos.scene2, GL_COLOR_ATTACHMENT0,         textures.scene_color, 0,1);
+      glNamedFramebufferTextureLayer(fbos.scene2, GL_DEPTH_STENCIL_ATTACHMENT,  textures.scene_depthstencil, 0,1);
 
-      if (GLEW_NV_bindless_texture){
+      if (has_GL_NV_bindless_texture){
         glMakeTextureHandleResidentNV(glGetTextureHandleNV(textures.scene_color));
         glMakeTextureHandleResidentNV(glGetTextureHandleNV(textures.scene_depthstencil));
       }
     }
     else{
 
-      if (GLEW_NV_bindless_texture && textures.scene_color){
+      if (has_GL_NV_bindless_texture && textures.scene_color){
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_color));
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_depthstencil));
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_color2));
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_depthstencil2));
       }
 
-      newTexture(textures.scene_color);
-      newTexture(textures.scene_depthstencil);
+      newTexture(textures.scene_color, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
+      newTexture(textures.scene_depthstencil, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
 
-      if (tweak.msaa){
-        glTextureStorage2DMultisampleEXT(textures.scene_color, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_RGBA8, width, height, GL_TRUE);
-        glTextureStorage2DMultisampleEXT(textures.scene_depthstencil, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_DEPTH24_STENCIL8, width, height, GL_TRUE);
+      if (m_tweak.msaa){
+        glTextureStorage2DMultisample(textures.scene_color,        1, GL_RGBA8, width, height, GL_TRUE);
+        glTextureStorage2DMultisample(textures.scene_depthstencil, 1, GL_DEPTH24_STENCIL8, width, height, GL_TRUE);
       }
       else{
-        glTextureStorage2DEXT(textures.scene_color, GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
-        glTextureStorage2DEXT(textures.scene_depthstencil, GL_TEXTURE_2D, 1, GL_DEPTH24_STENCIL8, width, height);
+        glTextureStorage2D(textures.scene_color,         1, GL_RGBA8, width, height);
+        glTextureStorage2D(textures.scene_depthstencil,  1, GL_DEPTH24_STENCIL8, width, height);
       }
 
-      glNamedFramebufferTexture2DEXT(fbos.scene, GL_COLOR_ATTACHMENT0,        GL_TEXTURE_2D, textures.scene_color, 0);
-      glNamedFramebufferTexture2DEXT(fbos.scene, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, textures.scene_depthstencil, 0);
+      glNamedFramebufferTexture(fbos.scene, GL_COLOR_ATTACHMENT0,        textures.scene_color, 0);
+      glNamedFramebufferTexture(fbos.scene, GL_DEPTH_STENCIL_ATTACHMENT, textures.scene_depthstencil, 0);
 
-      newTexture(textures.scene_color2);
-      newTexture(textures.scene_depthstencil2);
+      newTexture(textures.scene_color2, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
+      newTexture(textures.scene_depthstencil2, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
 
-      if (tweak.msaa){
-        glTextureStorage2DMultisampleEXT(textures.scene_color2, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_RGBA8, width, height, GL_TRUE);
-        glTextureStorage2DMultisampleEXT(textures.scene_depthstencil2, GL_TEXTURE_2D_MULTISAMPLE, 1, GL_DEPTH24_STENCIL8, width, height, GL_TRUE);
+      if (m_tweak.msaa){
+        glTextureStorage2DMultisample(textures.scene_color2,        1, GL_RGBA8, width, height, GL_TRUE);
+        glTextureStorage2DMultisample(textures.scene_depthstencil2, 1, GL_DEPTH24_STENCIL8, width, height, GL_TRUE);
       }
       else{
-        glTextureStorage2DEXT(textures.scene_color2, GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
-        glTextureStorage2DEXT(textures.scene_depthstencil2, GL_TEXTURE_2D, 1, GL_DEPTH24_STENCIL8, width, height);
+        glTextureStorage2D(textures.scene_color2,         1, GL_RGBA8, width, height);
+        glTextureStorage2D(textures.scene_depthstencil2,  1, GL_DEPTH24_STENCIL8, width, height);
       }
+      
+      glNamedFramebufferTexture(fbos.scene2, GL_COLOR_ATTACHMENT0,        textures.scene_color2, 0);
+      glNamedFramebufferTexture(fbos.scene2, GL_DEPTH_STENCIL_ATTACHMENT, textures.scene_depthstencil2, 0);
 
-      glNamedFramebufferTexture2DEXT(fbos.scene2, GL_COLOR_ATTACHMENT0,        GL_TEXTURE_2D, textures.scene_color2, 0);
-      glNamedFramebufferTexture2DEXT(fbos.scene2, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, textures.scene_depthstencil2, 0);
-
-      if (GLEW_NV_bindless_texture){
+      if (has_GL_NV_bindless_texture){
         glMakeTextureHandleResidentNV(glGetTextureHandleNV(textures.scene_color));
         glMakeTextureHandleResidentNV(glGetTextureHandleNV(textures.scene_depthstencil));
         glMakeTextureHandleResidentNV(glGetTextureHandleNV(textures.scene_color2));
@@ -450,36 +456,36 @@ namespace csfviewer
       }
     }
 
-    resources.fboTextureIncarnation++;
+    m_resources.fboTextureIncarnation++;
 
     return true;
   }
 
   void Sample::deinitRenderer()
   {
-    if (renderer){
-      renderer->deinit();
-      delete renderer;
-      renderer = NULL;
+    if (m_renderer){
+      m_renderer->deinit();
+      delete m_renderer;
+      m_renderer = NULL;
     }
   }
 
   void Sample::initRenderer(int type, Strategy strategy)
   {
     deinitRenderer();
-    Renderer::getRegistry()[sortedRenderers[type]]->updatedPrograms( progManager );
-    renderer = Renderer::getRegistry()[sortedRenderers[type]]->create();
-    renderer->m_strategy = strategy;
-    renderer->init(&cadscene,resources);
+    Renderer::getRegistry()[m_renderersSorted[type]]->updatedPrograms( m_progManager );
+    m_renderer = Renderer::getRegistry()[m_renderersSorted[type]]->create();
+    m_renderer->m_strategy = strategy;
+    m_renderer->init(&m_scene,m_resources);
   }
 
   bool Sample::begin()
   {
-    renderer = NULL;
-    stateIncarnation = 0;
+    m_renderer = NULL;
+    m_stateIncarnation = 0;
 
-    TwInit(TW_OPENGL_CORE,NULL);
-    TwWindowSize(m_window.m_viewsize[0],m_window.m_viewsize[1]);
+    ImGuiH::Init(m_window.m_viewsize[0], m_window.m_viewsize[1], this);
+    ImGui::InitGL();
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glEnable(GL_CULL_FACE);
@@ -489,8 +495,8 @@ namespace csfviewer
     vsync(false);
 #endif
 
-    Renderer::s_bindless_ubo = !!NVPWindow::sysExtensionSupported("GL_NV_uniform_buffer_unified_memory");
-    printf("\nNV_uniform_buffer_unified_memory support: %s\n\n", Renderer::s_bindless_ubo ? "true" : "false");
+    Renderer::s_bindless_ubo = !!NVPWindow::sysExtensionSupportedGL("GL_NV_uniform_buffer_unified_memory");
+    LOGI("\nNV_uniform_buffer_unified_memory support: %s\n\n", Renderer::s_bindless_ubo ? "true" : "false");
 
     bool validated(true);
 
@@ -499,83 +505,56 @@ namespace csfviewer
     glBindVertexArray(defaultVAO);
 
     validated = validated && initProgram();
-    validated = validated && initScene(filename.c_str(), 0, 3);
+    validated = validated && initScene(m_modelFilename.c_str(), 0, 3);
     validated = validated && initFramebuffers(m_window.m_viewsize[0],m_window.m_viewsize[1]);
 
-    TwBar *bar = TwNewBar("mainbar");
-    TwDefine(" GLOBAL contained=true help='OpenGL samples.\nCopyright NVIDIA Corporation 2013-2014' ");
-    TwDefine(" mainbar position='0 0' size='320 220' color='0 0 0' alpha=128 valueswidth=170 ");
-    TwDefine((std::string(" mainbar label='") + PROJECT_NAME + "'").c_str());
-    
     
     const Renderer::Registry registry = Renderer::getRegistry();
     for (size_t i = 0; i < registry.size(); i++)
     {
       if (registry[i]->isAvailable())
       {
-        if (!registry[i]->loadPrograms(progManager)){
-          fprintf(stderr,"Failed to load resources for renderer %s\n",registry[i]->name());
+        if (!registry[i]->loadPrograms(m_progManager)){
+          LOGE("Failed to load resources for renderer %s\n",registry[i]->name());
           return false;
         }
 
         uint sortkey = uint(i);
         sortkey |= registry[i]->priority() << 16;
-        sortedRenderers.push_back( sortkey );
+        m_renderersSorted.push_back( sortkey );
       }
     }
 
-    std::sort(sortedRenderers.begin(),sortedRenderers.end());
+    std::sort(m_renderersSorted.begin(),m_renderersSorted.end());
 
-    std::vector<TwEnumVal>  rendererVals;
+    for (size_t i = 0; i < m_renderersSorted.size(); i++){
+      m_renderersSorted[i] &= 0xFFFF;
 
-    for (size_t i = 0; i < sortedRenderers.size(); i++){
-      sortedRenderers[i] &= 0xFFFF;
-
-      TwEnumVal eval;
-      eval.Value = int(i);
-      eval.Label = registry[sortedRenderers[i]]->name();
-      rendererVals.push_back(eval);
+      m_ui.enumAdd(GUI_RENDERER, int(i), registry[m_renderersSorted[i]]->name());
     }
 
-    TwType rendererType = TwDefineEnum("renderer", &rendererVals[0], int(rendererVals.size()));
-    TwEnumVal strategyVals[] = {
-      {STRATEGY_INDIVIDUAL, "drawcall individual"},
-      {STRATEGY_JOIN,       "drawcall join"},
-      {STRATEGY_GROUPS,     "material groups"},
-    };
-    TwType strategyType = TwDefineEnum("strategy", strategyVals, sizeof(strategyVals)/sizeof(strategyVals[0]));
-    TwEnumVal shadeVals[] = {
-      {SHADE_SOLID,toString(SHADE_SOLID)},
-      {SHADE_SOLIDWIRE,toString(SHADE_SOLIDWIRE)},
-      {SHADE_SOLIDWIRE_SPLIT,"solid w edges (split test, only in sorted)"},
-    };
-    TwType shadeType = TwDefineEnum("shade", shadeVals, sizeof(shadeVals)/sizeof(shadeVals[0]));
-    TwEnumVal msaaVals[] = {
-      {0,"none"},
-      {2,"2x"},
-      {4,"4x"},
-      {8,"8x"},
-    };
-    TwType msaaType = TwDefineEnum("msaa", msaaVals, sizeof(msaaVals)/sizeof(msaaVals[0]));
-    TwAddVarRW(bar, "renderer", rendererType,  &tweak.renderer,  " label='renderer' ");
-    TwAddVarRW(bar, "strategy", strategyType,  &tweak.strategy,  " label='strategy' ");
-    TwAddVarRW(bar, "shademode", shadeType,    &tweak.shade,  " label='shademode' ");
-    TwAddVarRW(bar, "animate", TW_TYPE_BOOLCPP, &tweak.animateActive, "label='xplode via GPU' ");
-    TwAddVarRW(bar, "animateMin", TW_TYPE_FLOAT, &tweak.animateMin, "label='xplode min' ");
-    TwAddVarRW(bar, "animateDelta", TW_TYPE_FLOAT, &tweak.animateDelta, "label='xplode delta' ");
-    TwAddVarRW(bar, "clones", TW_TYPE_INT32,   &tweak.clones,  " label='clones' min=0 max=255 ");
-    TwAddVarRW(bar, "cloneX", TW_TYPE_BOOL32,  &tweak.cloneaxisX,  " label='clone X' ");
-    TwAddVarRW(bar, "cloneY", TW_TYPE_BOOL32,  &tweak.cloneaxisY,  " label='clone Y' ");
-    TwAddVarRW(bar, "cloneZ", TW_TYPE_BOOL32,  &tweak.cloneaxisZ,  " label='clone Z' ");
-    TwAddVarRW(bar, "msaa", msaaType,  &tweak.msaa,  " label='msaa' ");
-    
+    {
+      m_ui.enumAdd(GUI_STRATEGY, STRATEGY_INDIVIDUAL, "drawcall individual");
+      m_ui.enumAdd(GUI_STRATEGY, STRATEGY_JOIN, "drawcall join");
+      m_ui.enumAdd(GUI_STRATEGY, STRATEGY_GROUPS, "material groups");
 
-    m_control.m_sceneOrbit = nv_math::vec3f(cadscene.m_bbox.max+cadscene.m_bbox.min)*0.5f;
-    m_control.m_sceneDimension = nv_math::length((cadscene.m_bbox.max-cadscene.m_bbox.min));
-    m_control.m_viewMatrix = nv_math::look_at(m_control.m_sceneOrbit - (-vec3(1,1,1)*m_control.m_sceneDimension*0.5f*(float(tweak.zoom)/100.0f)), m_control.m_sceneOrbit, vec3(0,1,0));
+      m_ui.enumAdd(GUI_SHADE, SHADE_SOLID, toString(SHADE_SOLID));
+      m_ui.enumAdd(GUI_SHADE, SHADE_SOLIDWIRE,toString(SHADE_SOLIDWIRE));
+      m_ui.enumAdd(GUI_SHADE, SHADE_SOLIDWIRE_SPLIT,"solid w edges (split test, only in sorted)");
 
-    sceneUbo.wLightPos = (cadscene.m_bbox.max+cadscene.m_bbox.min)*0.5f + m_control.m_sceneDimension;
-    sceneUbo.wLightPos.w = 1.0;
+      m_ui.enumAdd(GUI_MSAA, 0, "none");
+      m_ui.enumAdd(GUI_MSAA, 2, "2x");
+      m_ui.enumAdd(GUI_MSAA, 4, "4x");
+      m_ui.enumAdd(GUI_MSAA, 8, "8x");
+    }
+
+
+    m_control.m_sceneOrbit = nv_math::vec3f(m_scene.m_bbox.max+m_scene.m_bbox.min)*0.5f;
+    m_control.m_sceneDimension = nv_math::length((m_scene.m_bbox.max-m_scene.m_bbox.min));
+    m_control.m_viewMatrix = nv_math::look_at(m_control.m_sceneOrbit - (-vec3(1,1,1)*m_control.m_sceneDimension*0.5f*(float(m_tweak.zoom)/100.0f)), m_control.m_sceneOrbit, vec3(0,1,0));
+
+    m_sceneUbo.wLightPos = (m_scene.m_bbox.max+m_scene.m_bbox.min)*0.5f + m_control.m_sceneDimension;
+    m_sceneUbo.wLightPos.w = 1.0;
 
     updatedPrograms();
 
@@ -590,12 +569,42 @@ namespace csfviewer
 
     TransformSystem::Programs xformprogs;
     getTransformPrograms(xformprogs);
-    transformSystem.init(xformprogs);
+    m_transformSystem.init(xformprogs);
     
 
-    initRenderer(tweak.renderer, tweak.strategy);
+    initRenderer(m_tweak.renderer, m_tweak.strategy);
 
     return validated;
+  }
+
+  void Sample::processUI(double time)
+  {
+    int width = m_window.m_viewsize[0];
+    int height = m_window.m_viewsize[1];
+
+    // Update imgui configuration
+    auto &imgui_io = ImGui::GetIO();
+    imgui_io.DeltaTime = static_cast<float>(time - m_uiTime);
+    imgui_io.DisplaySize = ImVec2(width, height);
+
+    m_uiTime = time;
+
+    ImGui::NewFrame();
+    ImGui::SetNextWindowSize(ImVec2(350, 0), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("NVIDIA " PROJECT_NAME, nullptr)) {
+      m_ui.enumCombobox(GUI_RENDERER, "renderer", &m_tweak.renderer);
+      m_ui.enumCombobox(GUI_STRATEGY, "strategy", &m_tweak.strategy);
+      m_ui.enumCombobox(GUI_SHADE, "shademode", &m_tweak.shade);
+      ImGui::Checkbox("xplode via GPU", &m_tweak.animateActive);
+      ImGui::SliderFloat("xplode min", &m_tweak.animateMin, 0, 16.0f);
+      ImGui::SliderFloat("xplode delta", &m_tweak.animateDelta, 0, 16.0f);
+      ImGuiH::InputIntClamped("clones", &m_tweak.clones, 0, 255);
+      ImGui::Checkbox("clone X", &m_tweak.cloneaxisX);
+      ImGui::Checkbox("clone Y", &m_tweak.cloneaxisY);
+      ImGui::Checkbox("clone Z", &m_tweak.cloneaxisZ);
+      m_ui.enumCombobox(GUI_MSAA, "msaa", &m_tweak.msaa);
+    }
+    ImGui::End();
   }
 
   void Sample::updatedPrograms()
@@ -611,64 +620,66 @@ namespace csfviewer
 
     TransformSystem::Programs xformprogs;
     getTransformPrograms(xformprogs);
-    transformSystem.update(xformprogs);
+    m_transformSystem.update(xformprogs);
 
-    resources.programUbo      = progManager.get(programs.draw_object);
-    resources.programUboLine  = progManager.get(programs.draw_object_line);
-    resources.programUboTris  = progManager.get(programs.draw_object_tris);
-    resources.programIdx      = progManager.get(programs.draw_object_indexed);
-    resources.programIdxLine  = progManager.get(programs.draw_object_indexed_line);
-    resources.programIdxTris  = progManager.get(programs.draw_object_indexed_tris);
+    m_resources.programUbo      = m_progManager.get(programs.draw_object);
+    m_resources.programUboLine  = m_progManager.get(programs.draw_object_line);
+    m_resources.programUboTris  = m_progManager.get(programs.draw_object_tris);
+    m_resources.programIdx      = m_progManager.get(programs.draw_object_indexed);
+    m_resources.programIdxLine  = m_progManager.get(programs.draw_object_indexed_line);
+    m_resources.programIdxTris  = m_progManager.get(programs.draw_object_indexed_tris);
 
     GLuint groupsizes[3];
-    glGetProgramiv(progManager.get(programs.xplode),GL_COMPUTE_WORK_GROUP_SIZE, (GLint*)groupsizes);
-    xplodeGroupSize = groupsizes[0];
+    glGetProgramiv(m_progManager.get(programs.xplode),GL_COMPUTE_WORK_GROUP_SIZE, (GLint*)groupsizes);
+    m_xplodeGroupSize = groupsizes[0];
 
-    resources.stateIncarnation++;
+    m_resources.stateIncarnation++;
   }
 
 
   void Sample::think(double time)
   {
+    processUI(time);
+
     m_control.processActions(m_window.m_viewsize,
       nv_math::vec2f(m_window.m_mouseCurrent[0],m_window.m_mouseCurrent[1]),
       m_window.m_mouseButtonFlags, m_window.m_wheel);
 
     if (m_window.onPress(KEY_R)){
-      progManager.reloadPrograms();
-      Renderer::getRegistry()[tweak.renderer]->updatedPrograms( progManager );
+      m_progManager.reloadPrograms();
+      Renderer::getRegistry()[m_tweak.renderer]->updatedPrograms( m_progManager );
       updatedPrograms();
     }
 
-    if (tweak.msaa != lastTweak.msaa){
+    if (m_tweak.msaa != m_lastTweak.msaa){
       initFramebuffers(m_window.m_viewsize[0],m_window.m_viewsize[1]);
     }
 
-    if (tweak.clones    != lastTweak.clones ||
-      tweak.cloneaxisX  != lastTweak.cloneaxisX ||
-      tweak.cloneaxisY  != lastTweak.cloneaxisY ||
-      tweak.cloneaxisZ  != lastTweak.cloneaxisZ)
+    if (m_tweak.clones    != m_lastTweak.clones ||
+      m_tweak.cloneaxisX  != m_lastTweak.cloneaxisX ||
+      m_tweak.cloneaxisY  != m_lastTweak.cloneaxisY ||
+      m_tweak.cloneaxisZ  != m_lastTweak.cloneaxisZ)
     {
       deinitRenderer();
-      initScene( filename.c_str(), tweak.clones, (tweak.cloneaxisX<<0) | (tweak.cloneaxisY<<1) | (tweak.cloneaxisZ<<2) );
+      initScene( m_modelFilename.c_str(), m_tweak.clones, (int(m_tweak.cloneaxisX)<<0) | (int(m_tweak.cloneaxisY)<<1) | (int(m_tweak.cloneaxisZ)<<2) );
     }
 
-    if (tweak.renderer != lastTweak.renderer ||
-        tweak.strategy != lastTweak.strategy ||
-        tweak.cloneaxisX  != lastTweak.cloneaxisX ||
-        tweak.cloneaxisY  != lastTweak.cloneaxisY ||
-        tweak.cloneaxisZ  != lastTweak.cloneaxisZ ||
-        tweak.clones   != lastTweak.clones)
+    if (m_tweak.renderer != m_lastTweak.renderer ||
+        m_tweak.strategy != m_lastTweak.strategy ||
+        m_tweak.cloneaxisX  != m_lastTweak.cloneaxisX ||
+        m_tweak.cloneaxisY  != m_lastTweak.cloneaxisY ||
+        m_tweak.cloneaxisZ  != m_lastTweak.cloneaxisZ ||
+        m_tweak.clones   != m_lastTweak.clones)
     {
-      initRenderer(tweak.renderer,tweak.strategy);
+      initRenderer(m_tweak.renderer,m_tweak.strategy);
     }
 
-    if (!tweak.animateActive && lastTweak.animateActive )
+    if (!m_tweak.animateActive && m_lastTweak.animateActive )
     {
-      cadscene.resetMatrices();
+      m_scene.resetMatrices();
     }
     
-    lastTweak = tweak;
+    m_lastTweak = m_tweak;
 
     int width   = m_window.m_viewsize[0];
     int height  = m_window.m_viewsize[1];
@@ -677,7 +688,7 @@ namespace csfviewer
       // generic state setup
       glViewport(0, 0, width, height);
 
-      if (tweak.shade == SHADE_SOLIDWIRE_SPLIT){
+      if (m_tweak.shade == SHADE_SOLIDWIRE_SPLIT){
         glBindFramebuffer(GL_FRAMEBUFFER, fbos.scene2);
         glClearColor(0.2f,0.2f,0.2f,0.0f);
         glClearDepth(1.0);
@@ -691,49 +702,49 @@ namespace csfviewer
 
       glEnable(GL_DEPTH_TEST);
 
-      sceneUbo.viewport = ivec2(width,height);
+      m_sceneUbo.viewport = ivec2(width,height);
 
       nv_math::mat4 projection = nv_math::perspective((45.f), float(width)/float(height), m_control.m_sceneDimension*0.001f, m_control.m_sceneDimension*10.0f);
       nv_math::mat4 view = m_control.m_viewMatrix;
 
-      sceneUbo.viewProjMatrix = projection * view;
-      sceneUbo.viewMatrix = view;
-      sceneUbo.viewMatrixIT = nv_math::transpose(nv_math::invert(view));
+      m_sceneUbo.viewProjMatrix = projection * view;
+      m_sceneUbo.viewMatrix = view;
+      m_sceneUbo.viewMatrixIT = nv_math::transpose(nv_math::invert(view));
 
-      sceneUbo.viewPos = sceneUbo.viewMatrixIT.row(3);
-      sceneUbo.viewDir = -view.row(2);
+      m_sceneUbo.viewPos = m_sceneUbo.viewMatrixIT.row(3);
+      m_sceneUbo.viewDir = -view.row(2);
 
-      sceneUbo.wLightPos = sceneUbo.viewMatrixIT.row(3);
-      sceneUbo.wLightPos.w = 1.0;
+      m_sceneUbo.wLightPos = m_sceneUbo.viewMatrixIT.row(3);
+      m_sceneUbo.wLightPos.w = 1.0;
 
-      sceneUbo.tboMatrices = uvec2(cadscene.m_matricesTexGLADDR & 0xFFFFFFFF, cadscene.m_matricesTexGLADDR >> 32);
+      m_sceneUbo.tboMatrices = uvec2(m_scene.m_matricesTexGLADDR & 0xFFFFFFFF, m_scene.m_matricesTexGLADDR >> 32);
 
-      glNamedBufferSubDataEXT(buffers.scene_ubo,0,sizeof(SceneData),&sceneUbo);
+      glNamedBufferSubData(buffers.scene_ubo,0,sizeof(SceneData),&m_sceneUbo);
 
       glDisable(GL_CULL_FACE);
     }
 
-    if (tweak.animateActive)
+    if (m_tweak.animateActive)
     {
       {
         NV_PROFILE_SECTION("Xplode");
 
         float speed = 0.5;
-        float scale = tweak.animateMin + (cosf(float(time) * speed) * 0.5f + 0.5f) * (tweak.animateDelta);
-        GLuint   totalNodes = GLuint(cadscene.m_matrices.size());
-        GLuint   groupsize = xplodeGroupSize;
+        float scale = m_tweak.animateMin + (cosf(float(time) * speed) * 0.5f + 0.5f) * (m_tweak.animateDelta);
+        GLuint   totalNodes = GLuint(m_scene.m_matrices.size());
+        GLuint   groupsize = m_xplodeGroupSize;
 
-        glUseProgram(progManager.get(programs.xplode));
+        glUseProgram(m_progManager.get(programs.xplode));
         glUniform1f(0, scale);
         glUniform1i(1, totalNodes);
 
-        glBindMultiTextureEXT(GL_TEXTURE0, GL_TEXTURE_BUFFER, cadscene.m_matricesOrigTexGL);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, cadscene.m_matricesGL);
+        nv_helpers_gl::bindMultiTexture(GL_TEXTURE0, GL_TEXTURE_BUFFER, m_scene.m_matricesOrigTexGL);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_scene.m_matricesGL);
 
         glDispatchCompute((totalNodes+groupsize-1)/groupsize,1,1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        glBindMultiTextureEXT(GL_TEXTURE0, GL_TEXTURE_BUFFER, 0);
+        nv_helpers_gl::bindMultiTexture(GL_TEXTURE0, GL_TEXTURE_BUFFER, 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
         glUseProgram(0);
       }
@@ -744,30 +755,30 @@ namespace csfviewer
         TransformSystem::Buffer world;
         TransformSystem::Buffer object;
 
-        ids.buffer = cadscene.m_parentIDsGL;
+        ids.buffer = m_scene.m_parentIDsGL;
         ids.offset = 0;
-        ids.size   = sizeof(GLuint)*cadscene.m_matrices.size();
+        ids.size   = sizeof(GLuint)*m_scene.m_matrices.size();
 
-        world.buffer = cadscene.m_matricesGL;
+        world.buffer = m_scene.m_matricesGL;
         world.offset = 0;
-        world.size   = sizeof(CadScene::MatrixNode)*cadscene.m_matrices.size();
+        world.size   = sizeof(CadScene::MatrixNode)*m_scene.m_matrices.size();
 
-        object.buffer = cadscene.m_matricesGL;
+        object.buffer = m_scene.m_matricesGL;
         object.offset = 0;
-        object.size   = sizeof(CadScene::MatrixNode)*cadscene.m_matrices.size();
+        object.size   = sizeof(CadScene::MatrixNode)*m_scene.m_matrices.size();
         
-        transformSystem.process(cadscene.m_nodeTree, ids, object, world);
+        m_transformSystem.process(m_scene.m_nodeTree, ids, object, world);
       }
     }
 
     {
       NV_PROFILE_SECTION("Render");
 
-      resources.cullView.viewPos = sceneUbo.viewPos.get_value();
-      resources.cullView.viewDir = sceneUbo.viewDir.get_value();
-      resources.cullView.viewProjMatrix = sceneUbo.viewProjMatrix.get_value();
+      m_resources.cullView.viewPos = m_sceneUbo.viewPos.get_value();
+      m_resources.cullView.viewDir = m_sceneUbo.viewDir.get_value();
+      m_resources.cullView.viewProjMatrix = m_sceneUbo.viewProjMatrix.get_value();
 
-      renderer->draw(tweak.shade,resources,m_profiler,progManager);
+      m_renderer->draw(m_tweak.shade,m_resources,m_profiler,m_progManager);
     }
 
 
@@ -775,7 +786,7 @@ namespace csfviewer
       NV_PROFILE_SECTION("Blit");
 
 
-      if (tweak.shade == SHADE_SOLIDWIRE_SPLIT){
+      if (m_tweak.shade == SHADE_SOLIDWIRE_SPLIT){
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
         int wh = width/2;
@@ -802,59 +813,64 @@ namespace csfviewer
       }
     }
     
-    if (!tweak.noUI){
-      NV_PROFILE_SECTION("TwDraw");
-      TwDraw();
+    if(!m_tweak.noUI){
+      NV_PROFILE_SECTION("GUI");
+      ImGui::Render();
+      ImGui::RenderDrawDataGL(ImGui::GetDrawData());
     }
 
-    lastTweak = tweak;
+    ImGui::EndFrame();
+
+    m_lastTweak = m_tweak;
   }
 
   void Sample::resize(int width, int height)
   {
-    TwWindowSize(width,height);
     initFramebuffers(width,height);
   }
 
   void Sample::parse( int argc, const char**argv )
   {
-    filename = sysExePath() + std::string(PROJECT_RELDIRECTORY) + "/geforce.csf.gz";
+    std::vector<std::string> directories;
+    directories.push_back(".");
+    directories.push_back(sysExePath() + std::string(PROJECT_RELDIRECTORY));
+    m_modelFilename = nv_helpers::findFile( std::string("geforce.csf.gz"), directories);
 
     for (int i = 0; i < argc; i++){
       if (strstr(argv[i],".csf")){
-        filename = std::string(argv[i]);
+        m_modelFilename = std::string(argv[i]);
       }
       if (strcmp(argv[i],"-renderer")==0 && i+1<argc){
-        tweak.renderer = atoi(argv[i+1]);
+        m_tweak.renderer = atoi(argv[i+1]);
         i++;
       }
       if (strcmp(argv[i],"-strategy")==0 && i+1<argc){
-        tweak.strategy = (Strategy)atoi(argv[i+1]);
+        m_tweak.strategy = (Strategy)atoi(argv[i+1]);
         i++;
       }
       if (strcmp(argv[i],"-shademode")==0 && i+1<argc){
-        tweak.shade = (ShadeType)atoi(argv[i+1]);
+        m_tweak.shade = (ShadeType)atoi(argv[i+1]);
         i++;
       }
       if (strcmp(argv[i],"-xplode")==0){
-        tweak.animateActive = true;
+        m_tweak.animateActive = true;
       }
       if (strcmp(argv[i],"-zoom")==0 && i+1<argc){
-        tweak.zoom = atoi(argv[i+1]);
+        m_tweak.zoom = atoi(argv[i+1]);
         i++;
       }
       if (strcmp(argv[i],"-noui")==0){
-        tweak.noUI = true;
+        m_tweak.noUI = true;
       }
       if (strcmp(argv[i],"-msaa")==0 && i+1<argc){
-        tweak.msaa = atoi(argv[i+1]);
+        m_tweak.msaa = atoi(argv[i+1]);
         i++;
       }
     }
 
-    if (filename.empty())
+    if (m_modelFilename.empty())
     {
-      fprintf(stderr,"no .csf file specified\n");
+      LOGE("no .csf file specified\n");
       exit(EXIT_FAILURE);
     }
   }
@@ -867,7 +883,8 @@ int sample_main(int argc, const char** argv)
 {
   Sample sample;
   sample.parse(argc,argv);
-
+  SETLOGFILENAME();
+  
   return sample.run(
     PROJECT_NAME,
     argc, argv,
