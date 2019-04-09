@@ -30,11 +30,10 @@
 #include <assert.h>
 #include <algorithm>
 #include "renderer.hpp"
-#include <main.h>
 
-#include <nv_math/nv_math_glsltypes.h>
+#include <nvmath/nvmath_glsltypes.h>
 
-using namespace nv_math;
+using namespace nvmath;
 #include "common.h"
 
 namespace csfviewer
@@ -131,7 +130,7 @@ namespace csfviewer
   public:
     void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
-    void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
+    void draw(ShadeType shadetype, const Resources& resources, nvh::Profiler& profiler, nvgl::ProgramManager &progManager);
 
     RendererUboRange()
       : m_vbum(false)
@@ -170,7 +169,7 @@ namespace csfviewer
     m_drawItems.clear();
   }
 
-  void RendererUboRange::draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
+  void RendererUboRange::draw(ShadeType shadetype, const Resources& resources, nvh::Profiler& profiler, nvgl::ProgramManager &progManager)
   {
     const CadScene* NV_RESTRICT scene = m_scene;
 

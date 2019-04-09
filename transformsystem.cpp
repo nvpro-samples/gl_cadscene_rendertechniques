@@ -30,7 +30,7 @@
 #include <assert.h>
 
 #include "transformsystem.hpp"
-#include <nv_helpers_gl/base_gl.hpp>
+#include <nvgl/base_gl.hpp>
 
 void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& matricesObject, Buffer& matricesWorld )
 {
@@ -51,7 +51,7 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
 #endif
 
   for (int i = 0; i < TEXTURES; i++){
-    nv_helpers_gl::bindMultiTexture(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, m_texsGL[i]);
+    nvgl::bindMultiTexture(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, m_texsGL[i]);
   }
 
   matricesWorld.BindBufferRange(GL_SHADER_STORAGE_BUFFER,0);
@@ -117,7 +117,7 @@ void TransformSystem::process(const NodeTree& nodeTree, Buffer& ids, Buffer& mat
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER,2,0);
 
   for (int i = 0; i < TEXTURES; i++){
-    nv_helpers_gl::bindMultiTexture(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, 0);
+    nvgl::bindMultiTexture(GL_TEXTURE0 + i, GL_TEXTURE_BUFFER, 0);
   }
   
 }

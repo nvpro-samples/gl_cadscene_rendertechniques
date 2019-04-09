@@ -30,11 +30,10 @@
 #include <assert.h>
 #include <algorithm>
 #include "renderer.hpp"
-#include <main.h>
 
-#include <nv_math/nv_math_glsltypes.h>
+#include <nvmath/nvmath_glsltypes.h>
 
-using namespace nv_math;
+using namespace nvmath;
 #include "common.h"
 
 #pragma pack(1)

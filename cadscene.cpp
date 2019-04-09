@@ -36,9 +36,9 @@
 #define USE_CACHECOMBINE  1
 
 
-nv_math::vec4f randomVector(float from, float to)
+nvmath::vec4f randomVector(float from, float to)
 {
-  nv_math::vec4f vec;
+  nvmath::vec4f vec;
   float width = to - from;
   for (int i = 0; i < 4; i++){
     vec.get_value()[i] = from + (float(rand())/float(RAND_MAX))*width;
@@ -81,7 +81,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
     for (int i = 0; i < 2; i++){
       material.sides[i].ambient = randomVector(0.0f,0.1f);
-      material.sides[i].diffuse = nv_math::vec4f(csf->materials[n].color) + randomVector(0.0f,0.07f);
+      material.sides[i].diffuse = nvmath::vec4f(csf->materials[n].color) + randomVector(0.0f,0.07f);
       material.sides[i].specular = randomVector(0.25f,0.55f);
       material.sides[i].emissive = randomVector(0.0f,0.05f);
     }
@@ -120,7 +120,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
         vertices[i].normal[3] = 0.0f;
       }
       else{
-        vertices[i].normal = normalize(nv_math::vec3f(vertices[i].position));
+        vertices[i].normal = normalize(nvmath::vec3f(vertices[i].position));
       }
       
       
@@ -216,8 +216,8 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
     memcpy( m_matrices[n].objectMatrix.get_value(), csfnode->objectTM, sizeof(float)*16 );
     memcpy( m_matrices[n].worldMatrix.get_value(),  csfnode->worldTM,  sizeof(float)*16 );
     
-    m_matrices[n].objectMatrixIT  = nv_math::transpose( nv_math::invert(m_matrices[n].objectMatrix) );
-    m_matrices[n].worldMatrixIT   = nv_math::transpose( nv_math::invert(m_matrices[n].worldMatrix) );
+    m_matrices[n].objectMatrixIT  = nvmath::transpose( nvmath::invert(m_matrices[n].objectMatrix) );
+    m_matrices[n].worldMatrixIT   = nvmath::transpose( nvmath::invert(m_matrices[n].worldMatrix) );
 
     if (csfnode->geometryIDX < 0) continue;
     
@@ -239,7 +239,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
     object.matrixIndex = n;
     object.geometryIndex = csfnode->geometryIDX;
 
-    m_objectAssigns[numObjects] = nv_math::vec2i( object.matrixIndex, object.geometryIndex );
+    m_objectAssigns[numObjects] = nvmath::vec2i( object.matrixIndex, object.geometryIndex );
 
     object.parts.resize( csfnode->numParts );
     for (int i = 0; i < csfnode->numParts; i++){
@@ -258,7 +258,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
 
   // compute clone move delta based on m_bbox;
 
-  nv_math::vec4f dim = m_bbox.max - m_bbox.min;
+  nvmath::vec4f dim = m_bbox.max - m_bbox.min;
 
   int sq = 1;
   int numAxis = 0;
@@ -289,7 +289,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
   for (int c = 1; c <= clones; c++){
     int numNodes = csf->numNodes;
 
-    nv_math::vec4f shift = dim * 1.05f;
+    nvmath::vec4f shift = dim * 1.05f;
 
     float u = 0;
     float v = 0;
@@ -346,14 +346,14 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
       MatrixNode &nodeOrig = m_matrices[n];
       node = nodeOrig;
       node.worldMatrix.set_col(3,node.worldMatrix.col(3) + shift);
-      node.worldMatrixIT   = nv_math::transpose( nv_math::invert(node.worldMatrix) );
+      node.worldMatrixIT   = nvmath::transpose( nvmath::invert(node.worldMatrix) );
     }
 
     {
       // patch object matrix of root
       MatrixNode &node = m_matrices[csf->rootIDX + numNodes * c];
       node.objectMatrix.set_col(3,node.objectMatrix.col(3) + shift);
-      node.objectMatrixIT  = nv_math::transpose( nv_math::invert(node.objectMatrix) );
+      node.objectMatrixIT  = nvmath::transpose( nvmath::invert(node.objectMatrix) );
     }
     
     // clone objects
@@ -375,7 +375,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
         object.cacheWire.state[i].matrixIndex += c * numNodes;
       }
 
-      m_objectAssigns[n + numObjects * c] = nv_math::vec2i( object.matrixIndex, object.geometryIndex );
+      m_objectAssigns[n + numObjects * c] = nvmath::vec2i( object.matrixIndex, object.geometryIndex );
     }
 
   }
@@ -388,7 +388,7 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
   glTextureBuffer(m_matricesTexGL, GL_RGBA32F, m_matricesGL);
 
   glCreateBuffers(1,&m_objectAssignsGL);
-  glNamedBufferStorage(m_objectAssignsGL,sizeof(nv_math::vec2i) * m_objectAssigns.size(), &m_objectAssigns[0], 0);
+  glNamedBufferStorage(m_objectAssignsGL,sizeof(nvmath::vec2i) * m_objectAssigns.size(), &m_objectAssigns[0], 0);
 
   if (has_GL_NV_vertex_buffer_unified_memory){
     glGetNamedBufferParameterui64vNV(m_materialsGL, GL_BUFFER_GPU_ADDRESS_NV, &m_materialsADDR);

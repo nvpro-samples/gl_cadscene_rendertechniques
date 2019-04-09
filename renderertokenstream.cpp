@@ -29,9 +29,9 @@
 
 #include "tokenbase.hpp"
 
-#include <nv_math/nv_math_glsltypes.h>
+#include <nvmath/nvmath_glsltypes.h>
 
-using namespace nv_math;
+using namespace nvmath;
 #include "common.h"
 
 namespace csfviewer
@@ -85,7 +85,7 @@ namespace csfviewer
   public:
     void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
-    void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
+    void draw(ShadeType shadetype, const Resources& resources, nvh::Profiler& profiler, nvgl::ProgramManager &progManager);
 
   private:
 
@@ -246,7 +246,7 @@ namespace csfviewer
     m_drawItems.clear();
   }
 
-  void RendererTokenStream::draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager)
+  void RendererTokenStream::draw(ShadeType shadetype, const Resources& resources, nvh::Profiler& profiler, nvgl::ProgramManager &progManager)
   {
     const CadScene* NV_RESTRICT scene = m_scene;
 
@@ -298,20 +298,20 @@ namespace csfviewer
       stream.init(bufferPtr,bufferSize);
 
       {
-        nv_helpers::Profiler::Section _tempTimer(profiler ,"Token");
+        nvh::Profiler::Section _tempTimer(profiler ,"Token");
         begin = GenerateTokens(stream, m_drawItems, begin, shadetype, scene, resources);
       }
 
       if (useSub){
         buffer = m_tokenBuffers[shadetype];
 
-        nv_helpers::Profiler::Section _tempTimer(profiler ,"Send");
+        nvh::Profiler::Section _tempTimer(profiler ,"Send");
         glInvalidateBufferData(buffer);
         glNamedBufferSubData(buffer,0,stream.size(), stream.m_begin);
       }
 
       {
-        nv_helpers::Profiler::Section _tempTimer(profiler ,"Draw");
+        nvh::Profiler::Section _tempTimer(profiler ,"Draw");
         if (m_hwsupport){
           ShadeCommand & shade =  m_shades[shadetype];
           glDrawCommandsStatesNV(buffer, &shade.offsets[0], &shade.sizes[0], &shade.states[0], &shade.fbos[0], int(shade.states.size()) );

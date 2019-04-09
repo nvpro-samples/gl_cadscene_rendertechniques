@@ -245,4 +245,3 @@ If you are interested in multiple samples, you can use [build_all](https://githu
 
 When using classic scenegraphs, there is typically a lot of overhead in traversing the scene, it is highly recommended to use simpler representations for actual rendering. Flattened hierarchy, arrays... memory friendly data structures, data-oriented design.
 If you are still working with a classic scenegraph then [nvpro-pipeline](https://github.com/nvpro-pipeline/pipeline) may provide some acceleration strategies to avoid full scenegraph traversal, of which some are also described in this [GTC 2013 presentation](http://on-demand.gputechconf.com/gtc/2013/presentations/S3032-Advanced-Scenegraph-Rendering-Pipeline.pdf).
-

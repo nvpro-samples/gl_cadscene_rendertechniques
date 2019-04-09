@@ -124,31 +124,37 @@ void main()
   edgeBasis0 = mat3(worldTM) * (edgeBasis0);
   edgeBasis1 = mat3(worldTM) * (edgeBasis1) * proj;
   
-  objid = IN[0].objid;
-  
 #if FLIPWIND
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal - edgeBasis0 - edgeBasis1),1);
   EmitVertex();
   
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal + edgeBasis0 - edgeBasis1),1);
   EmitVertex();
   
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal - edgeBasis0 + edgeBasis1),1);
   EmitVertex();
   
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal + edgeBasis0 + edgeBasis1),1);
   EmitVertex();
   
 #else
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal - edgeBasis0 - edgeBasis1),1);
   EmitVertex();
   
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal - edgeBasis0 + edgeBasis1),1);
   EmitVertex();
   
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal + edgeBasis0 - edgeBasis1),1);
   EmitVertex();
   
+  objid = IN[0].objid;
   gl_Position = viewProjTM * vec4(worldCtr + (faceNormal + edgeBasis0 + edgeBasis1),1);
   EmitVertex();
 #endif

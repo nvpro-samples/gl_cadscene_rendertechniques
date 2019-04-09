@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2014-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,13 +25,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 #ifndef CULLINGSYSTEM_H__
 #define CULLINGSYSTEM_H__
 
+#include <stdint.h>
+#include <nvgl/extensions_gl.hpp>
 
-#include <nv_helpers_gl/extensions_gl.hpp>
 
 class CullingSystem {
 public:
@@ -66,27 +66,27 @@ public:
     GLintptr    offset;
     GLsizeiptr  size;
 
-    void create(size_t sizei, const void* data, GLbitfield flags)
+    void create( size_t sizei, const void* data, GLbitfield flags )
     {
       size = sizei;
       offset = 0;
       stride = 0;
-      glCreateBuffers(1,&buffer);
-      glNamedBufferStorage(buffer, size, data, flags);
+      glCreateBuffers( 1, &buffer );
+      glNamedBufferStorage( buffer, size, data, flags );
     }
 
-    Buffer(GLuint buffer, size_t sizei=0)
-      : buffer(buffer)
-      , offset(0)
-      , stride(0)
+    Buffer( GLuint buffer, size_t sizei = 0 )
+      : buffer( buffer )
+      , offset( 0 )
+      , stride( 0 )
     {
-      if (!sizei){
-        if (sizeof(GLsizeiptr) > 4)
-          glGetNamedBufferParameteri64v(buffer,GL_BUFFER_SIZE, (GLint64*)&size);
+      if (!sizei) {
+        if (sizeof( GLsizeiptr ) > 4)
+          glGetNamedBufferParameteri64v( buffer, GL_BUFFER_SIZE, (GLint64*)&size );
         else
-          glGetNamedBufferParameteriv(buffer, GL_BUFFER_SIZE, (GLint*)&size);
+          glGetNamedBufferParameteriv( buffer, GL_BUFFER_SIZE, (GLint*)&size );
       }
-      else{
+      else {
         size = sizei;
       }
     }
@@ -137,16 +137,41 @@ public:
     // derive from this class and implement this function how you want to
     // deal with the results that are provided in the buffer
     virtual void resultFromBits( const Buffer& bufferVisBitsCurrent ) = 0;
+    // for readback methods we need to wait for a result
+    virtual void resultClient() {};
 
   };
 
   class JobReadback : public Job {
   public:
     // 1 32-bit integer per 32 objects (1 bit per object)
-    Buffer  m_bufferVisBitsReadback;
-    int*    m_hostVisBits;
+    Buffer      m_bufferVisBitsReadback;
+    uint32_t*   m_hostVisBits;
 
+    // Do not use this Job class unless you have to. Persistent 
+    // mapped buffers are preferred.
+
+    // Copies result into readback buffer
     void resultFromBits( const Buffer& bufferVisBitsCurrent );
+
+    // getBufferData into hostVisBits (blocking!)
+    void resultClient();
+  };
+
+  class JobReadbackPersistent : public Job {
+  public:
+    // 1 32-bit integer per 32 objects (1 bit per object)
+    Buffer      m_bufferVisBitsReadback;
+    void*       m_bufferVisBitsMapping;
+    uint32_t*   m_hostVisBits;
+    GLsync      m_fence;
+
+    // Copies result into readback buffer and records
+    // a fence.
+    void resultFromBits(const Buffer& bufferVisBitsCurrent);
+
+    // waits on fence and copies mapping into hostVisBits
+    void resultClient();
   };
 
   // multidrawindirect based
@@ -180,6 +205,8 @@ public:
 
   void bitsFromOutput ( Job &job, BitType type );
   void resultFromBits ( Job &job );
+  void resultClient   ( Job &job );
+
   // swaps the Current/Last bit array (for temporal coherent techniques)
   void swapBits       ( Job &job );
 
@@ -202,7 +229,8 @@ private:
   GLuint    m_fbo;
   GLuint    m_tbo[2];
   bool      m_dualindex;
-  bool      m_usessbo;
+  bool      m_useSSBO;
+  bool      m_useRepesentativeTest;
 };
 
 #endif

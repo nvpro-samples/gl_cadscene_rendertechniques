@@ -26,23 +26,23 @@
 
 #define DEBUG_FILTER     1
 
-#include <nv_helpers_gl/extensions_gl.hpp>
+#include <nvgl/extensions_gl.hpp>
 
 #include <imgui/imgui_helper.h>
 #include <imgui/imgui_impl_gl.h>
 
-#include <nv_math/nv_math_glsltypes.h>
-#include <nv_helpers_gl/glsltypes_gl.hpp>
+#include <nvmath/nvmath_glsltypes.h>
+#include <nvgl/glsltypes_gl.hpp>
 
-#include <nv_helpers/geometry.hpp>
-#include <nv_helpers/misc.hpp>
-#include <nv_helpers/cameracontrol.hpp>
-#include <nv_helpers/tnulled.hpp>
+#include <nvh/geometry.hpp>
+#include <nvh/misc.hpp>
+#include <nvh/cameracontrol.hpp>
+#include <nvh/tnulled.hpp>
 
-#include <nv_helpers_gl/appwindowprofiler_gl.hpp>
-#include <nv_helpers_gl/error_gl.hpp>
-#include <nv_helpers_gl/programmanager_gl.hpp>
-#include <nv_helpers_gl/base_gl.hpp>
+#include <nvgl/appwindowprofiler_gl.hpp>
+#include <nvgl/error_gl.hpp>
+#include <nvgl/programmanager_gl.hpp>
+#include <nvgl/base_gl.hpp>
 
 #include "transformsystem.hpp"
 
@@ -51,9 +51,9 @@
 
 #include <algorithm>
 
-using namespace nv_helpers;
-using namespace nv_helpers_gl;
-using namespace nv_math;
+using namespace nvh;
+using namespace nvgl;
+using namespace nvmath;
 #include "common.h"
 
 
@@ -65,7 +65,7 @@ namespace csfviewer
   int const SAMPLE_MINOR_VERSION(5);
 
  
-  class Sample : public nv_helpers_gl::AppWindowProfilerGL 
+  class Sample : public nvgl::AppWindowProfilerGL 
   {
   public:
 
@@ -105,13 +105,13 @@ namespace csfviewer
     } programs;
 
     struct {
-      nv_helpers::TNulled<GLuint>
+      nvh::TNulled<GLuint>
         scene,
         scene2;
     } fbos;
 
     struct {
-      nv_helpers::TNulled<GLuint>
+      nvh::TNulled<GLuint>
         scene_ubo;
     } buffers;
 
@@ -121,7 +121,7 @@ namespace csfviewer
     } addresses;
 
     struct {
-      nv_helpers::TNulled<GLuint>
+      nvh::TNulled<GLuint>
         scene_color,
         scene_color2,
         scene_depthstencil,
@@ -161,6 +161,8 @@ namespace csfviewer
     GLuint                m_xplodeGroupSize;
 
     std::vector<unsigned int>   m_renderersSorted;
+    std::string                 m_rendererName;
+
     Renderer* NV_RESTRICT       m_renderer;
     Resources                   m_resources;
 
@@ -180,43 +182,48 @@ namespace csfviewer
 
     void updatedPrograms();
 
+    void setupConfigParameters();
+    void setRendererFromName();
+
+
   public:
 
     Sample() 
     {
-
+      setupConfigParameters();
     }
 
-    void parse(int argc, const char**argv);
+    bool validateConfig() override;
 
-    bool begin();
+    bool begin() override;
+    void think(double time) override;
+    void resize(int width, int height) override;
+
     void processUI(double time);
-    void think(double time);
-    void resize(int width, int height);
 
     CameraControl m_control;
 
-    void end() {
+    void end() override {
       ImGui::ShutdownGL();
     }
-    // return true to prevent m_window updates
-    bool mouse_pos(int x, int y) {
+    // return true to prevent m_windowState updates
+    bool mouse_pos(int x, int y) override {
       if (m_tweak.noUI) return false;
       return ImGuiH::mouse_pos(x, y);
     }
-    bool mouse_button(int button, int action) {
+    bool mouse_button(int button, int action) override {
       if (m_tweak.noUI) return false;
       return ImGuiH::mouse_button(button, action);
     }
-    bool mouse_wheel(int wheel) {
+    bool mouse_wheel(int wheel) override {
       if (m_tweak.noUI) return false;
       return ImGuiH::mouse_wheel(wheel);
     }
-    bool key_char(int button) {
+    bool key_char(int button) override {
       if (m_tweak.noUI) return false;
       return ImGuiH::key_char(button);
     }
-    bool key_button(int button, int action, int mods) {
+    bool key_button(int button, int action, int mods) override {
       if (m_tweak.noUI) return false;
       return ImGuiH::key_button(button, action, mods);
     }
@@ -290,41 +297,41 @@ namespace csfviewer
 
 
     programs.cull_object_raster = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,   "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.vert.glsl"),
-      nv_helpers_gl::ProgramManager::Definition(GL_GEOMETRY_SHADER, "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.geo.glsl"),
-      nv_helpers_gl::ProgramManager::Definition(GL_FRAGMENT_SHADER, "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,   "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_GEOMETRY_SHADER, "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.geo.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER, "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-raster.frag.glsl"));
 
     programs.cull_object_frustum = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-xfb.vert.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define DUALINDEX 1\n#define MATRICES 4\n", "cull-xfb.vert.glsl"));
 
     programs.cull_object_hiz = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define DUALINDEX 1\n#define MATRICES 4\n#define OCCLUSION\n", "cull-xfb.vert.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define DUALINDEX 1\n#define MATRICES 4\n#define OCCLUSION\n", "cull-xfb.vert.glsl"));
 
     programs.cull_bit_regular = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL 0\n", "cull-bitpack.vert.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL 0\n", "cull-bitpack.vert.glsl"));
     programs.cull_bit_temporallast = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL TEMPORAL_LAST\n", "cull-bitpack.vert.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL TEMPORAL_LAST\n", "cull-bitpack.vert.glsl"));
     programs.cull_bit_temporalnew = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL TEMPORAL_NEW\n", "cull-bitpack.vert.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,  "#define TEMPORAL TEMPORAL_NEW\n", "cull-bitpack.vert.glsl"));
 
     programs.cull_depth_mips = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_VERTEX_SHADER,   "cull-downsample.vert.glsl"),
-      nv_helpers_gl::ProgramManager::Definition(GL_FRAGMENT_SHADER, "cull-downsample.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,   "cull-downsample.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER, "cull-downsample.frag.glsl"));
 
     programs.scan_prefixsum = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_SUM\n", "scan.comp.glsl"));
+      nvgl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_SUM\n", "scan.comp.glsl"));
     programs.scan_offsets = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_OFFSETS\n", "scan.comp.glsl"));
+      nvgl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_OFFSETS\n", "scan.comp.glsl"));
     programs.scan_combine = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_COMBINE\n", "scan.comp.glsl"));
+      nvgl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "#define TASK TASK_COMBINE\n", "scan.comp.glsl"));
 
     programs.transform_leaves = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "transform-leaves.comp.glsl"));
+      nvgl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "transform-leaves.comp.glsl"));
     programs.transform_level = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "transform-level.comp.glsl"));
+      nvgl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "transform-level.comp.glsl"));
 
     programs.xplode = m_progManager.createProgram(
-      nv_helpers_gl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "xplode-animation.comp.glsl"));
+      nvgl::ProgramManager::Definition(GL_COMPUTE_SHADER,  "xplode-animation.comp.glsl"));
 
     validated = m_progManager.areProgramsValid();
 
@@ -484,7 +491,7 @@ namespace csfviewer
     m_renderer = NULL;
     m_stateIncarnation = 0;
 
-    ImGuiH::Init(m_window.m_viewsize[0], m_window.m_viewsize[1], this);
+    ImGuiH::Init(m_windowState.m_viewSize[0], m_windowState.m_viewSize[1], this);
     ImGui::InitGL();
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -492,10 +499,10 @@ namespace csfviewer
     glEnable(GL_DEPTH_TEST);
 
 #if defined (NDEBUG)
-    vsync(false);
+    setVsync(false);
 #endif
 
-    Renderer::s_bindless_ubo = !!NVPWindow::sysExtensionSupportedGL("GL_NV_uniform_buffer_unified_memory");
+    Renderer::s_bindless_ubo = !!m_contextWindow.extensionSupported("GL_NV_uniform_buffer_unified_memory");
     LOGI("\nNV_uniform_buffer_unified_memory support: %s\n\n", Renderer::s_bindless_ubo ? "true" : "false");
 
     bool validated(true);
@@ -506,7 +513,7 @@ namespace csfviewer
 
     validated = validated && initProgram();
     validated = validated && initScene(m_modelFilename.c_str(), 0, 3);
-    validated = validated && initFramebuffers(m_window.m_viewsize[0],m_window.m_viewsize[1]);
+    validated = validated && initFramebuffers(m_windowState.m_viewSize[0],m_windowState.m_viewSize[1]);
 
     
     const Renderer::Registry registry = Renderer::getRegistry();
@@ -549,9 +556,9 @@ namespace csfviewer
     }
 
 
-    m_control.m_sceneOrbit = nv_math::vec3f(m_scene.m_bbox.max+m_scene.m_bbox.min)*0.5f;
-    m_control.m_sceneDimension = nv_math::length((m_scene.m_bbox.max-m_scene.m_bbox.min));
-    m_control.m_viewMatrix = nv_math::look_at(m_control.m_sceneOrbit - (-vec3(1,1,1)*m_control.m_sceneDimension*0.5f*(float(m_tweak.zoom)/100.0f)), m_control.m_sceneOrbit, vec3(0,1,0));
+    m_control.m_sceneOrbit = nvmath::vec3f(m_scene.m_bbox.max+m_scene.m_bbox.min)*0.5f;
+    m_control.m_sceneDimension = nvmath::length((m_scene.m_bbox.max-m_scene.m_bbox.min));
+    m_control.m_viewMatrix = nvmath::look_at(m_control.m_sceneOrbit - (-vec3(1,1,1)*m_control.m_sceneDimension*0.5f*(float(m_tweak.zoom)/100.0f)), m_control.m_sceneOrbit, vec3(0,1,0));
 
     m_sceneUbo.wLightPos = (m_scene.m_bbox.max+m_scene.m_bbox.min)*0.5f + m_control.m_sceneDimension;
     m_sceneUbo.wLightPos.w = 1.0;
@@ -579,8 +586,8 @@ namespace csfviewer
 
   void Sample::processUI(double time)
   {
-    int width = m_window.m_viewsize[0];
-    int height = m_window.m_viewsize[1];
+    int width = m_windowState.m_viewSize[0];
+    int height = m_windowState.m_viewSize[1];
 
     // Update imgui configuration
     auto &imgui_io = ImGui::GetIO();
@@ -636,23 +643,24 @@ namespace csfviewer
     m_resources.stateIncarnation++;
   }
 
-
   void Sample::think(double time)
   {
+    NV_PROFILE_GL_SECTION("Frame");
+
     processUI(time);
 
-    m_control.processActions(m_window.m_viewsize,
-      nv_math::vec2f(m_window.m_mouseCurrent[0],m_window.m_mouseCurrent[1]),
-      m_window.m_mouseButtonFlags, m_window.m_wheel);
+    m_control.processActions(m_windowState.m_viewSize,
+      nvmath::vec2f(m_windowState.m_mouseCurrent[0],m_windowState.m_mouseCurrent[1]),
+      m_windowState.m_mouseButtonFlags, m_windowState.m_mouseWheel);
 
-    if (m_window.onPress(KEY_R)){
+    if (m_windowState.onPress(KEY_R)){
       m_progManager.reloadPrograms();
       Renderer::getRegistry()[m_tweak.renderer]->updatedPrograms( m_progManager );
       updatedPrograms();
     }
 
     if (m_tweak.msaa != m_lastTweak.msaa){
-      initFramebuffers(m_window.m_viewsize[0],m_window.m_viewsize[1]);
+      initFramebuffers(m_windowState.m_viewSize[0],m_windowState.m_viewSize[1]);
     }
 
     if (m_tweak.clones    != m_lastTweak.clones ||
@@ -681,8 +689,8 @@ namespace csfviewer
     
     m_lastTweak = m_tweak;
 
-    int width   = m_window.m_viewsize[0];
-    int height  = m_window.m_viewsize[1];
+    int width   = m_windowState.m_viewSize[0];
+    int height  = m_windowState.m_viewSize[1];
 
     {
       // generic state setup
@@ -704,12 +712,12 @@ namespace csfviewer
 
       m_sceneUbo.viewport = ivec2(width,height);
 
-      nv_math::mat4 projection = nv_math::perspective((45.f), float(width)/float(height), m_control.m_sceneDimension*0.001f, m_control.m_sceneDimension*10.0f);
-      nv_math::mat4 view = m_control.m_viewMatrix;
+      nvmath::mat4 projection = nvmath::perspective((45.f), float(width)/float(height), m_control.m_sceneDimension*0.001f, m_control.m_sceneDimension*10.0f);
+      nvmath::mat4 view = m_control.m_viewMatrix;
 
       m_sceneUbo.viewProjMatrix = projection * view;
       m_sceneUbo.viewMatrix = view;
-      m_sceneUbo.viewMatrixIT = nv_math::transpose(nv_math::invert(view));
+      m_sceneUbo.viewMatrixIT = nvmath::transpose(nvmath::invert(view));
 
       m_sceneUbo.viewPos = m_sceneUbo.viewMatrixIT.row(3);
       m_sceneUbo.viewDir = -view.row(2);
@@ -727,7 +735,7 @@ namespace csfviewer
     if (m_tweak.animateActive)
     {
       {
-        NV_PROFILE_SECTION("Xplode");
+        NV_PROFILE_GL_SECTION("Xplode");
 
         float speed = 0.5;
         float scale = m_tweak.animateMin + (cosf(float(time) * speed) * 0.5f + 0.5f) * (m_tweak.animateDelta);
@@ -738,19 +746,19 @@ namespace csfviewer
         glUniform1f(0, scale);
         glUniform1i(1, totalNodes);
 
-        nv_helpers_gl::bindMultiTexture(GL_TEXTURE0, GL_TEXTURE_BUFFER, m_scene.m_matricesOrigTexGL);
+        nvgl::bindMultiTexture(GL_TEXTURE0, GL_TEXTURE_BUFFER, m_scene.m_matricesOrigTexGL);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_scene.m_matricesGL);
 
         glDispatchCompute((totalNodes+groupsize-1)/groupsize,1,1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        nv_helpers_gl::bindMultiTexture(GL_TEXTURE0, GL_TEXTURE_BUFFER, 0);
+        nvgl::bindMultiTexture(GL_TEXTURE0, GL_TEXTURE_BUFFER, 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
         glUseProgram(0);
       }
 
       {
-        NV_PROFILE_SECTION("Tree");
+        NV_PROFILE_GL_SECTION("Tree");
         TransformSystem::Buffer ids;
         TransformSystem::Buffer world;
         TransformSystem::Buffer object;
@@ -772,7 +780,7 @@ namespace csfviewer
     }
 
     {
-      NV_PROFILE_SECTION("Render");
+      NV_PROFILE_GL_SECTION("Render");
 
       m_resources.cullView.viewPos = m_sceneUbo.viewPos.get_value();
       m_resources.cullView.viewDir = m_sceneUbo.viewDir.get_value();
@@ -783,7 +791,7 @@ namespace csfviewer
 
 
     {
-      NV_PROFILE_SECTION("Blit");
+      NV_PROFILE_GL_SECTION("Blit");
 
 
       if (m_tweak.shade == SHADE_SOLIDWIRE_SPLIT){
@@ -814,7 +822,7 @@ namespace csfviewer
     }
     
     if(!m_tweak.noUI){
-      NV_PROFILE_SECTION("GUI");
+      NV_PROFILE_GL_SECTION("GUI");
       ImGui::Render();
       ImGui::RenderDrawDataGL(ImGui::GetDrawData());
     }
@@ -829,72 +837,95 @@ namespace csfviewer
     initFramebuffers(width,height);
   }
 
-  void Sample::parse( int argc, const char**argv )
+  void Sample::setRendererFromName()
   {
-    std::vector<std::string> directories;
-    directories.push_back(".");
-    directories.push_back(sysExePath() + std::string(PROJECT_RELDIRECTORY));
-    m_modelFilename = nv_helpers::findFile( std::string("geforce.csf.gz"), directories);
-
-    for (int i = 0; i < argc; i++){
-      if (strstr(argv[i],".csf")){
-        m_modelFilename = std::string(argv[i]);
-      }
-      if (strcmp(argv[i],"-renderer")==0 && i+1<argc){
-        m_tweak.renderer = atoi(argv[i+1]);
-        i++;
-      }
-      if (strcmp(argv[i],"-strategy")==0 && i+1<argc){
-        m_tweak.strategy = (Strategy)atoi(argv[i+1]);
-        i++;
-      }
-      if (strcmp(argv[i],"-shademode")==0 && i+1<argc){
-        m_tweak.shade = (ShadeType)atoi(argv[i+1]);
-        i++;
-      }
-      if (strcmp(argv[i],"-xplode")==0){
-        m_tweak.animateActive = true;
-      }
-      if (strcmp(argv[i],"-zoom")==0 && i+1<argc){
-        m_tweak.zoom = atoi(argv[i+1]);
-        i++;
-      }
-      if (strcmp(argv[i],"-noui")==0){
-        m_tweak.noUI = true;
-      }
-      if (strcmp(argv[i],"-msaa")==0 && i+1<argc){
-        m_tweak.msaa = atoi(argv[i+1]);
-        i++;
+    if (!m_rendererName.empty()) {
+      const Renderer::Registry registry = Renderer::getRegistry();
+      for (size_t i = 0; i < m_renderersSorted.size(); i++) {
+        if (strcmp(m_rendererName.c_str(), registry[m_renderersSorted[i]]->name()) == 0) {
+          m_tweak.renderer = int(i);
+        }
       }
     }
+  }
 
+  static std::string addPath(std::string const &defaultPath, std::string const &filename)
+  {
+    if (
+#ifdef _WIN32
+      filename.find(':') != std::string::npos
+#else
+      !filename.empty() && filename[0] == '/'
+#endif
+      )
+    {
+      return filename;
+    }
+    else {
+      return defaultPath + "/" + filename;
+    }
+  }
+
+  static bool endsWith(std::string const &s, std::string const &end) {
+    if (s.length() >= end.length()) {
+      return (0 == s.compare(s.length() - end.length(), end.length(), end));
+    }
+    else {
+      return false;
+    }
+
+  }
+
+  void Sample::setupConfigParameters()
+  {
+    m_parameterList.addFilename(".csf", &m_modelFilename);
+    m_parameterList.addFilename(".csf.gz", &m_modelFilename);
+
+    m_parameterList.add("noui", &m_tweak.noUI, false);
+
+    m_parameterList.add("renderer", (uint32_t*)&m_tweak.renderer);
+    m_parameterList.add("renderernamed", &m_rendererName);
+    m_parameterList.add("strategy", (uint32_t*)&m_tweak.strategy);
+    m_parameterList.add("shademode", (uint32_t*)&m_tweak.shade);
+    m_parameterList.add("msaa", &m_tweak.msaa);
+    m_parameterList.add("clones", &m_tweak.clones);
+    m_parameterList.add("xplode", &m_tweak.animateActive);
+    m_parameterList.add("zoom", &m_tweak.zoom);
+  }
+
+
+  bool Sample::validateConfig()
+  {
     if (m_modelFilename.empty())
     {
-      LOGE("no .csf file specified\n");
-      exit(EXIT_FAILURE);
+      LOGI("no .csf model file specified\n");
+      LOGI("exe <filename.csf/cfg> parameters...\n");
+      m_parameterList.print();
+      return false;
     }
+    return true;
   }
 
 }
 
 using namespace csfviewer;
 
-int sample_main(int argc, const char** argv)
+int main(int argc, const char** argv)
 {
+  NVPWindow::System system(argv[0], PROJECT_NAME);
+
   Sample sample;
-  sample.parse(argc,argv);
-  SETLOGFILENAME();
+
+  {
+    std::vector<std::string> directories;
+    directories.push_back(".");
+    directories.push_back(NVPWindow::sysExePath() + std::string(PROJECT_RELDIRECTORY));
+    sample.m_modelFilename = nvh::findFile(std::string("geforce.csf.gz"), directories);
+  }
   
   return sample.run(
     PROJECT_NAME,
     argc, argv,
-    SAMPLE_SIZE_WIDTH, SAMPLE_SIZE_HEIGHT,
-    SAMPLE_MAJOR_VERSION, SAMPLE_MINOR_VERSION);
+    SAMPLE_SIZE_WIDTH, SAMPLE_SIZE_HEIGHT);
 }
-
-void sample_print(int level, const char * fmt)
-{
-
-}
-
 

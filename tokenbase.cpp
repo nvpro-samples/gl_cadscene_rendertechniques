@@ -28,11 +28,9 @@
 
 using namespace nvtoken;
 
-#include <main.h>
+#include <nvmath/nvmath_glsltypes.h>
 
-#include <nv_math/nv_math_glsltypes.h>
-
-using namespace nv_math;
+using namespace nvmath;
 #include "common.h"
 
 
@@ -42,7 +40,7 @@ namespace csfviewer
 
   bool TokenRendererBase::hasNativeCommandList()
   {
-    return has_GL_NV_command_list;
+    return !!has_GL_NV_command_list;
   }
 
   void TokenRendererBase::init(bool bindlessUbo, bool bindlessVbo)

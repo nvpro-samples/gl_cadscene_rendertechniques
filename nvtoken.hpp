@@ -35,7 +35,7 @@
 #define NVTOKEN_STATESYSTEM 1
 
 #include "platform.h"
-#include <nv_helpers_gl/extensions_gl.hpp>
+#include <nvgl/extensions_gl.hpp>
 #if NVTOKEN_STATESYSTEM
 // not needed if emulation is not used, or implemented differently
 #include "statesystem.hpp"

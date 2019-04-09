@@ -42,9 +42,9 @@
 
 #include "cadscene.hpp"
 #include <NvFoundation.h>
-#include <nv_helpers_gl/programmanager_gl.hpp>
-#include <nv_helpers_gl/base_gl.hpp>
-#include <nv_helpers/profiler.hpp>
+#include <nvgl/programmanager_gl.hpp>
+#include <nvgl/base_gl.hpp>
+#include <nvh/profiler.hpp>
 #include "cullingsystem.hpp"
 #include "scansystem.hpp"
 
@@ -143,8 +143,8 @@ namespace csfviewer {
       }
 
     public:
-      virtual bool loadPrograms( nv_helpers_gl::ProgramManager &mgr ) { return true; }
-      virtual void updatedPrograms( nv_helpers_gl::ProgramManager &mgr ) { }
+      virtual bool loadPrograms( nvgl::ProgramManager &mgr ) { return true; }
+      virtual void updatedPrograms( nvgl::ProgramManager &mgr ) { }
       virtual bool isAvailable() const = 0;
       virtual const char* name() const = 0;
       virtual Renderer* create() const = 0;
@@ -166,7 +166,7 @@ namespace csfviewer {
   public:
     virtual void init(const CadScene* NV_RESTRICT scene, const Resources& resources) {}
     virtual void deinit() {}
-    virtual void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager ) {}
+    virtual void draw(ShadeType shadetype, const Resources& resources, nvh::Profiler& profiler, nvgl::ProgramManager &progManager ) {}
     virtual ~Renderer() {}
 
 

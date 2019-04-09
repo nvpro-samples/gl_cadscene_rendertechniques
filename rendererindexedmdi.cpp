@@ -30,11 +30,10 @@
 #include <assert.h>
 #include <algorithm>
 #include "renderer.hpp"
-#include <main.h>
 
-#include <nv_math/nv_math_glsltypes.h>
+#include <nvmath/nvmath_glsltypes.h>
 
-using namespace nv_math;
+using namespace nvmath;
 #include "common.h"
 
 #define USE_VERTEX_ASSIGNS  (!USE_BASEINSTANCE)
@@ -184,7 +183,7 @@ namespace csfviewer
   public:
     void init(const CadScene* NV_RESTRICT scene, const Resources& resources);
     void deinit();
-    void draw(ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager);
+    void draw(ShadeType shadetype, const Resources& resources, nvh::Profiler& profiler, nvgl::ProgramManager &progManager);
 
     bool                        m_vbum;
     bool                        m_sort;
@@ -351,7 +350,7 @@ namespace csfviewer
     }
   }
 
-  void RendererIndexedMDI::draw( ShadeType shadetype, const Resources& resources, nv_helpers::Profiler& profiler, nv_helpers_gl::ProgramManager &progManager )
+  void RendererIndexedMDI::draw( ShadeType shadetype, const Resources& resources, nvh::Profiler& profiler, nvgl::ProgramManager &progManager )
   {
     const CadScene* NV_RESTRICT scene = m_scene;
     bool vbum = m_vbum;
@@ -391,7 +390,7 @@ namespace csfviewer
       glBindBufferBase(GL_UNIFORM_BUFFER, UBO_MATERIAL, scene->m_materialsGL);
     }
 
-    nv_helpers_gl::bindMultiTexture(GL_TEXTURE0 + TEX_MATRICES, GL_TEXTURE_BUFFER, scene->m_matricesTexGL);
+    nvgl::bindMultiTexture(GL_TEXTURE0 + TEX_MATRICES, GL_TEXTURE_BUFFER, scene->m_matricesTexGL);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
     {
@@ -453,7 +452,7 @@ namespace csfviewer
 #endif
 
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
-    nv_helpers_gl::bindMultiTexture(GL_TEXTURE0 + TEX_MATRICES, GL_TEXTURE_BUFFER, 0);
+    nvgl::bindMultiTexture(GL_TEXTURE0 + TEX_MATRICES, GL_TEXTURE_BUFFER, 0);
 
     glBindBufferBase(GL_UNIFORM_BUFFER,UBO_SCENE, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER,UBO_MATERIAL, 0);
