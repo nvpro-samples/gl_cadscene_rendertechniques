@@ -46,6 +46,7 @@
 #ifdef __cplusplus
 namespace csfviewer
 {
+  using namespace nvmath;
 #endif
 
 struct SceneData {

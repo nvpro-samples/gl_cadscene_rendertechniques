@@ -53,12 +53,12 @@ public:
 
 
   struct Level {
-    unsigned int          incarnation;
+    unsigned int          changeID;
     std::vector<nodeID>   nodes;
     std::vector<nodeID>   leaves;
 
     Level(){
-      incarnation = 0;
+      changeID = 0;
     }
   };
 
@@ -80,7 +80,7 @@ private:
   std::vector<nodeID>               m_unusedNodes;
 
   // actual nodes added to tree
-  unsigned int                      m_treeCompactIncarnation;
+  unsigned int                      m_treeCompactChangeID;
   std::vector<compactID>            m_treeCompactNodes;
   int                               m_nodesActive;
   int                               m_levelsUsed;
@@ -95,7 +95,7 @@ public:
     return m_levelsUsed;
   }
 
-  unsigned int getTreeParentIncarnation() const;
+  unsigned int getTreeParentChangeID() const;
   const std::vector<compactID>& getTreeCompactNodes() const;
 
   inline nodeID getTreeRoot()

@@ -32,7 +32,6 @@
 
 #include <nvmath/nvmath_glsltypes.h>
 
-using namespace nvmath;
 #include "common.h"
 
 namespace csfviewer
@@ -47,7 +46,7 @@ namespace csfviewer
   public:
     class Shared {
     public:
-      nvgl::ProgramManager::ProgramID 
+      nvgl::ProgramID 
         token_sizes,
         token_scan,
         token_cmds;

@@ -33,7 +33,6 @@
 
 #include <nvmath/nvmath_glsltypes.h>
 
-using namespace nvmath;
 #include "common.h"
 
 #define USE_VERTEX_ASSIGNS  (!USE_BASEINSTANCE)

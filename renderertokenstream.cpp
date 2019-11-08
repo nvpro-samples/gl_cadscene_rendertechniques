@@ -31,7 +31,6 @@
 
 #include <nvmath/nvmath_glsltypes.h>
 
-using namespace nvmath;
 #include "common.h"
 
 namespace csfviewer

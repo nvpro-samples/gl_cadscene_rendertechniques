@@ -28,7 +28,7 @@
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 #include "cadscene.hpp"
-#include "cadscenefile.h"
+#include <fileformats/cadscenefile.h>
 
 #include <algorithm>
 #include <assert.h>
@@ -156,14 +156,14 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
     size_t offsetSolid = 0;
     size_t offsetWire = csfgeom->numIndexSolid * sizeof(GLuint);
     for (int i = 0; i < csfgeom->numParts; i++){
-      geom.parts[i].indexWire.count   = csfgeom->parts[i].indexWire;
-      geom.parts[i].indexSolid.count  = csfgeom->parts[i].indexSolid;
+      geom.parts[i].indexWire.count   = csfgeom->parts[i].numIndexWire;
+      geom.parts[i].indexSolid.count  = csfgeom->parts[i].numIndexSolid;
 
       geom.parts[i].indexWire.offset  = offsetWire;
       geom.parts[i].indexSolid.offset = offsetSolid;
 
-      offsetWire  += csfgeom->parts[i].indexWire  * sizeof(GLuint);
-      offsetSolid += csfgeom->parts[i].indexSolid * sizeof(GLuint);
+      offsetWire  += csfgeom->parts[i].numIndexWire  * sizeof(GLuint);
+      offsetSolid += csfgeom->parts[i].numIndexSolid * sizeof(GLuint);
     }
   }
   for (int c = 1; c <= clones; c++){

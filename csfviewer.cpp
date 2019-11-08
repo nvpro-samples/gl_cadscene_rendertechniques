@@ -36,8 +36,8 @@
 
 #include <nvh/geometry.hpp>
 #include <nvh/misc.hpp>
+#include <nvh/fileoperations.hpp>
 #include <nvh/cameracontrol.hpp>
-#include <nvh/tnulled.hpp>
 
 #include <nvgl/appwindowprofiler_gl.hpp>
 #include <nvgl/error_gl.hpp>
@@ -51,9 +51,6 @@
 
 #include <algorithm>
 
-using namespace nvh;
-using namespace nvgl;
-using namespace nvmath;
 #include "common.h"
 
 
@@ -77,7 +74,7 @@ namespace csfviewer
     };
 
     struct {
-      ProgramManager::ProgramID
+      nvgl::ProgramID
         draw_object,
         draw_object_tris,
         draw_object_line,
@@ -105,14 +102,12 @@ namespace csfviewer
     } programs;
 
     struct {
-      nvh::TNulled<GLuint>
-        scene,
-        scene2;
+      GLuint scene = 0;
+      GLuint scene2 = 0;
     } fbos;
 
     struct {
-      nvh::TNulled<GLuint>
-        scene_ubo;
+      GLuint scene_ubo = 0;
     } buffers;
 
     struct {
@@ -121,11 +116,10 @@ namespace csfviewer
     } addresses;
 
     struct {
-      nvh::TNulled<GLuint>
-        scene_color,
-        scene_color2,
-        scene_depthstencil,
-        scene_depthstencil2;
+      GLuint scene_color = 0;
+      GLuint scene_color2 = 0;
+      GLuint scene_depthstencil = 0;
+      GLuint scene_depthstencil2 = 0;
     } textures;
 
     struct Tweak {
@@ -144,7 +138,7 @@ namespace csfviewer
       bool          noUI = false;
     };
 
-    ProgramManager        m_progManager;
+    nvgl::ProgramManager  m_progManager;
 
     ImGuiH::Registry      m_ui;
     double                m_uiTime = 0;
@@ -166,7 +160,7 @@ namespace csfviewer
     Renderer* NV_RESTRICT       m_renderer;
     Resources                   m_resources;
 
-    size_t                m_stateIncarnation;
+    size_t                m_stateChangeID;
 
 
     void updateProgramDefine();
@@ -201,7 +195,7 @@ namespace csfviewer
 
     void processUI(double time);
 
-    CameraControl m_control;
+    nvh::CameraControl m_control;
 
     void end() override {
       ImGui::ShutdownGL();
@@ -262,38 +256,38 @@ namespace csfviewer
   bool Sample::initProgram()
   {
     bool validated(true);
-    m_progManager.m_filetype = ShaderFileManager::FILETYPE_GLSL;
+    m_progManager.m_filetype = nvh::ShaderFileManager::FILETYPE_GLSL;
     m_progManager.addDirectory( std::string("GLSL_" PROJECT_NAME));
-    m_progManager.addDirectory( sysExePath() + std::string(PROJECT_RELDIRECTORY));
+    m_progManager.addDirectory( exePath() + std::string(PROJECT_RELDIRECTORY));
     //m_progManager.addDirectory( std::string(PROJECT_ABSDIRECTORY));
 
-    m_progManager.registerInclude("common.h", "common.h");
+    m_progManager.registerInclude("common.h");
 
     updateProgramDefine();
 
     programs.draw_object = m_progManager.createProgram(
-      ProgramManager::Definition(GL_VERTEX_SHADER,          "scene.vert.glsl"),
-      ProgramManager::Definition(GL_FRAGMENT_SHADER,        "scene.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,          "scene.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER,        "scene.frag.glsl"));
 
     programs.draw_object_tris = m_progManager.createProgram(
-      ProgramManager::Definition(GL_VERTEX_SHADER,    "#define WIREMODE 0\n",  "scene.vert.glsl"),
-      ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define WIREMODE 0\n",  "scene.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,    "#define WIREMODE 0\n",  "scene.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define WIREMODE 0\n",  "scene.frag.glsl"));
 
     programs.draw_object_line = m_progManager.createProgram(
-      ProgramManager::Definition(GL_VERTEX_SHADER,    "#define WIREMODE 1\n",  "scene.vert.glsl"),
-      ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define WIREMODE 1\n",  "scene.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,    "#define WIREMODE 1\n",  "scene.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define WIREMODE 1\n",  "scene.frag.glsl"));
 
     programs.draw_object_indexed = m_progManager.createProgram(
-      ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n",  "scene.vert.glsl"),
-      ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n",  "scene.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n",  "scene.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n",  "scene.frag.glsl"));
 
     programs.draw_object_indexed_tris = m_progManager.createProgram(
-      ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n#define WIREMODE 0\n",  "scene.vert.glsl"),
-      ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n#define WIREMODE 0\n",  "scene.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n#define WIREMODE 0\n",  "scene.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n#define WIREMODE 0\n",  "scene.frag.glsl"));
 
     programs.draw_object_indexed_line = m_progManager.createProgram(
-      ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n#define WIREMODE 1\n",  "scene.vert.glsl"),
-      ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n#define WIREMODE 1\n",  "scene.frag.glsl"));
+      nvgl::ProgramManager::Definition(GL_VERTEX_SHADER,    "#define USE_INDEXING 1\n#define WIREMODE 1\n",  "scene.vert.glsl"),
+      nvgl::ProgramManager::Definition(GL_FRAGMENT_SHADER,  "#define USE_INDEXING 1\n#define WIREMODE 1\n",  "scene.frag.glsl"));
 
 
     programs.cull_object_raster = m_progManager.createProgram(
@@ -346,7 +340,7 @@ namespace csfviewer
       glMakeNamedBufferNonResidentNV(buffers.scene_ubo);
     }
 
-    newBuffer(buffers.scene_ubo);
+    nvgl::newBuffer(buffers.scene_ubo);
     glNamedBufferStorage(buffers.scene_ubo, sizeof(SceneData), NULL, GL_DYNAMIC_STORAGE_BIT);
 
     if (has_GL_NV_shader_buffer_load){
@@ -357,7 +351,7 @@ namespace csfviewer
     m_resources.sceneUbo  = buffers.scene_ubo;
     m_resources.sceneAddr = addresses.scene_ubo;
 
-    m_resources.stateIncarnation++;
+    m_resources.stateChangeID++;
 
     bool status = m_scene.loadCSF(filename, clones, cloneaxis);
 
@@ -377,13 +371,13 @@ namespace csfviewer
    
     if (!fbos.scene || m_tweak.msaa != m_lastTweak.msaa)
     {
-      newFramebuffer(fbos.scene);
-      newFramebuffer(fbos.scene2);
+      nvgl::newFramebuffer(fbos.scene);
+      nvgl::newFramebuffer(fbos.scene2);
 
       m_resources.fbo = fbos.scene;
       m_resources.fbo2 = fbos.scene2;
 
-      m_resources.stateIncarnation++;
+      m_resources.stateChangeID++;
     }
 
     if (layered){
@@ -393,8 +387,8 @@ namespace csfviewer
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_depthstencil));
       }
 
-      newTexture(textures.scene_color, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY);
-      newTexture(textures.scene_depthstencil, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY);
+      nvgl::newTexture(textures.scene_color, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY);
+      nvgl::newTexture(textures.scene_depthstencil, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY);
 
       if (m_tweak.msaa){
         glTextureStorage3DMultisample(textures.scene_color,        m_tweak.msaa, GL_RGBA8, width, height, 2, GL_TRUE);
@@ -425,8 +419,8 @@ namespace csfviewer
         glMakeTextureHandleNonResidentNV(glGetTextureHandleNV(textures.scene_depthstencil2));
       }
 
-      newTexture(textures.scene_color, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
-      newTexture(textures.scene_depthstencil, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
+      nvgl::newTexture(textures.scene_color, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
+      nvgl::newTexture(textures.scene_depthstencil, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
 
       if (m_tweak.msaa){
         glTextureStorage2DMultisample(textures.scene_color,        1, GL_RGBA8, width, height, GL_TRUE);
@@ -440,8 +434,8 @@ namespace csfviewer
       glNamedFramebufferTexture(fbos.scene, GL_COLOR_ATTACHMENT0,        textures.scene_color, 0);
       glNamedFramebufferTexture(fbos.scene, GL_DEPTH_STENCIL_ATTACHMENT, textures.scene_depthstencil, 0);
 
-      newTexture(textures.scene_color2, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
-      newTexture(textures.scene_depthstencil2, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
+      nvgl::newTexture(textures.scene_color2, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
+      nvgl::newTexture(textures.scene_depthstencil2, m_tweak.msaa ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D);
 
       if (m_tweak.msaa){
         glTextureStorage2DMultisample(textures.scene_color2,        1, GL_RGBA8, width, height, GL_TRUE);
@@ -463,7 +457,7 @@ namespace csfviewer
       }
     }
 
-    m_resources.fboTextureIncarnation++;
+    m_resources.fboTextureChangeID++;
 
     return true;
   }
@@ -489,7 +483,7 @@ namespace csfviewer
   bool Sample::begin()
   {
     m_renderer = NULL;
-    m_stateIncarnation = 0;
+    m_stateChangeID = 0;
 
     ImGuiH::Init(m_windowState.m_viewSize[0], m_windowState.m_viewSize[1], this);
     ImGui::InitGL();
@@ -605,12 +599,16 @@ namespace csfviewer
       ImGui::Checkbox("xplode via GPU", &m_tweak.animateActive);
       ImGui::SliderFloat("xplode min", &m_tweak.animateMin, 0, 16.0f);
       ImGui::SliderFloat("xplode delta", &m_tweak.animateDelta, 0, 16.0f);
-      ImGuiH::InputIntClamped("clones", &m_tweak.clones, 0, 255);
+      ImGuiH::InputIntClamped("clones", &m_tweak.clones, 0, 255, 1, 10, ImGuiInputTextFlags_EnterReturnsTrue);
       ImGui::Checkbox("clone X", &m_tweak.cloneaxisX);
       ImGui::Checkbox("clone Y", &m_tweak.cloneaxisY);
       ImGui::Checkbox("clone Z", &m_tweak.cloneaxisZ);
       m_ui.enumCombobox(GUI_MSAA, "msaa", &m_tweak.msaa);
     }
+    if (!m_tweak.cloneaxisX && !m_tweak.cloneaxisY && !m_tweak.cloneaxisZ) {
+      m_tweak.cloneaxisX = true;
+    }
+
     ImGui::End();
   }
 
@@ -640,7 +638,7 @@ namespace csfviewer
     glGetProgramiv(m_progManager.get(programs.xplode),GL_COMPUTE_WORK_GROUP_SIZE, (GLint*)groupsizes);
     m_xplodeGroupSize = groupsizes[0];
 
-    m_resources.stateIncarnation++;
+    m_resources.stateChangeID++;
   }
 
   void Sample::think(double time)
@@ -880,6 +878,7 @@ namespace csfviewer
   {
     m_parameterList.addFilename(".csf", &m_modelFilename);
     m_parameterList.addFilename(".csf.gz", &m_modelFilename);
+    m_parameterList.addFilename(".gltf", &m_modelFilename);
 
     m_parameterList.add("noui", &m_tweak.noUI, false);
 
@@ -912,14 +911,14 @@ using namespace csfviewer;
 
 int main(int argc, const char** argv)
 {
-  NVPWindow::System system(argv[0], PROJECT_NAME);
+  NVPSystem system(argv[0], PROJECT_NAME);
 
   Sample sample;
 
   {
     std::vector<std::string> directories;
     directories.push_back(".");
-    directories.push_back(NVPWindow::sysExePath() + std::string(PROJECT_RELDIRECTORY));
+    directories.push_back(NVPSystem::exePath() + std::string(PROJECT_RELDIRECTORY));
     sample.m_modelFilename = nvh::findFile(std::string("geforce.csf.gz"), directories);
   }
   

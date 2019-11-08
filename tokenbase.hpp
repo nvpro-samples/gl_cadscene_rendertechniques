@@ -94,8 +94,8 @@ namespace csfviewer
       , m_emulate(false)
       , m_uselist(false)
       , m_sort(false)
-      , m_stateIncarnation(~0)
-      , m_fboStateIncarnation(~0)
+      , m_stateChangeID(~0)
+      , m_fboStateChangeID(~0)
     {
 
     }
@@ -113,8 +113,8 @@ namespace csfviewer
     GLuint                      m_commandLists[NUM_SHADES];
     ShadeCommand                m_shades[NUM_SHADES];
 
-    size_t                      m_stateIncarnation;
-    size_t                      m_fboStateIncarnation;
+    size_t                      m_stateChangeID;
+    size_t                      m_fboStateChangeID;
 
     StateSystem                 m_stateSystem;
     StateSystem::StateID        m_stateIDs[NUM_STATES];

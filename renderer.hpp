@@ -84,8 +84,8 @@ namespace csfviewer {
     GLuint    fbo;
     GLuint    fbo2;
 
-    size_t    stateIncarnation;
-    size_t    fboTextureIncarnation;
+    size_t    stateChangeID;
+    size_t    fboTextureChangeID;
 
     CullingSystem::View cullView;
 
@@ -102,8 +102,8 @@ namespace csfviewer {
     }
 
     Resources() {
-      stateIncarnation = 0;
-      fboTextureIncarnation = 0;
+      stateChangeID = 0;
+      fboTextureChangeID = 0;
     }
   };
 

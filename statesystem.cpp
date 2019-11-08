@@ -724,7 +724,7 @@ void StateSystem::destroy( GLuint num, const StateID* objects )
 void StateSystem::set( StateID id, const State& state, GLenum basePrimitiveMode )
 {
   StateInternal& intstate   = m_states[id];
-  intstate.incarnation++;
+  intstate.changeID++;
   intstate.state = state;
   intstate.state.basePrimitiveMode = basePrimitiveMode;
 
@@ -746,7 +746,7 @@ __forceinline int StateSystem::prepareTransitionCache(StateID prev, StateInterna
   int index = -1;
 
   for (int i = 0; i < MAX_DIFFS; i++){
-    if ( to.others[i].state == prev && to.others[i].incarnation == from.incarnation) {
+    if ( to.others[i].state == prev && to.others[i].changeID == from.changeID) {
       index = i;
       break;
     }
@@ -757,7 +757,7 @@ __forceinline int StateSystem::prepareTransitionCache(StateID prev, StateInterna
     to.usedDiff = (to.usedDiff + 1) % MAX_DIFFS;
 
     to.others[index].state = prev;
-    to.others[index].incarnation = from.incarnation;
+    to.others[index].changeID = from.changeID;
 
     makeDiff(to.diffs[index], from, to);
   }

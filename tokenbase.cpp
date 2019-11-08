@@ -30,10 +30,7 @@ using namespace nvtoken;
 
 #include <nvmath/nvmath_glsltypes.h>
 
-using namespace nvmath;
 #include "common.h"
-
-
 
 namespace csfviewer
 {
@@ -182,11 +179,11 @@ namespace csfviewer
 
   void TokenRendererBase::captureState( const Resources &resources )
   {
-    bool stateChanged  = m_stateIncarnation != resources.stateIncarnation;
-    bool fboTexChanged = m_fboStateIncarnation != resources.fboTextureIncarnation;
+    bool stateChanged  = m_stateChangeID != resources.stateChangeID;
+    bool fboTexChanged = m_fboStateChangeID != resources.fboTextureChangeID;
 
-    m_stateIncarnation = resources.stateIncarnation;
-    m_fboStateIncarnation = resources.fboTextureIncarnation;
+    m_stateChangeID = resources.stateChangeID;
+    m_fboStateChangeID = resources.fboTextureChangeID;
 
     if (stateChanged){
       StateSystem::State state;

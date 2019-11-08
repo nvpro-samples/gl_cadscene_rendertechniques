@@ -31,7 +31,6 @@
 
 #include <nvmath/nvmath_glsltypes.h>
 
-using namespace nvmath;
 #include "common.h"
 
 namespace csfviewer
@@ -427,8 +426,8 @@ namespace csfviewer
     if (USE_STATEOBJ_REBUILD){
       nvh::Profiler::Section section(profiler,"state");
       for (int i = 0; i < 25; i++){
-        m_stateIncarnation = resources.stateIncarnation + 1;
-        m_fboStateIncarnation = resources.fboTextureIncarnation + 1;
+        m_stateChangeID = resources.stateChangeID + 1;
+        m_fboStateChangeID = resources.fboTextureChangeID + 1;
         captureState(resources);
       }
     }

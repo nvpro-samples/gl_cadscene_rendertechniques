@@ -647,7 +647,7 @@ private:
 
   struct StateDiffKey{
     StateID   state;
-    GLuint    incarnation;
+    GLuint    changeID;
   };
 
   struct StateDiff {
@@ -688,14 +688,14 @@ private:
 
   struct StateInternal {
     State       state;
-    GLuint      incarnation;
+    GLuint      changeID;
     
     int           usedDiff;
     StateDiffKey  others[MAX_DIFFS];
     StateDiff     diffs[MAX_DIFFS];
 
     StateInternal() {
-      incarnation = 0;
+      changeID = 0;
     }
   };
 

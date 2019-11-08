@@ -46,7 +46,7 @@ static inline void clearNode(NodeTree::Node &node)
 NodeTree::NodeTree()
 {
   m_levelsUsed = 0;
-  m_treeCompactIncarnation = 0;
+  m_treeCompactChangeID = 0;
   m_nodesActive = 0;
 
   clearNode(m_root);
@@ -62,9 +62,9 @@ const NodeTree::Level* NodeTree::getUsedLevel( int level ) const
   return NULL;
 }
 
-unsigned int NodeTree::getTreeParentIncarnation() const
+unsigned int NodeTree::getTreeParentChangeID() const
 {
-  return m_treeCompactIncarnation;
+  return m_treeCompactChangeID;
 }
 
 const std::vector<NodeTree::compactID>& NodeTree::getTreeCompactNodes() const
@@ -185,7 +185,7 @@ void NodeTree::addToLevel( nodeID nodeidx, nodeID parentidx )
   const Node& parent  = getNode(parentidx);
   Level&  level       = getLevel(parent.level+1);
 
-  level.incarnation++;
+  level.changeID++;
 
   node.levelidx = (lvlID)level.nodes.size();
   node.level    = parent.level+1;
@@ -205,7 +205,7 @@ void NodeTree::removeFromLevel( nodeID nodeidx )
   Node&   node  = getNode(nodeidx);
   Level&  level = getLevel(node.level);
 
-  level.incarnation++;
+  level.changeID++;
 
   level.nodes[node.levelidx] = level.nodes[level.nodes.size()-1];
   getNode(level.nodes[node.levelidx]).levelidx = node.levelidx;
@@ -268,7 +268,7 @@ void NodeTree::updateLevelNode( nodeID nodeidx, nodeID parentidx )
 
   // update level parent buffer to reflect last state always
   m_treeCompactNodes[nodeidx].parent = parentidx;
-  m_treeCompactIncarnation++;
+  m_treeCompactChangeID++;
 
   if (isValid(node.levelidx)){
     // already active
@@ -323,7 +323,7 @@ void NodeTree::clear()
 {
   m_nodesActive = 0;
   m_levelsUsed  = 0;
-  m_treeCompactIncarnation = 0;
+  m_treeCompactChangeID = 0;
   m_levels.clear();
   m_nodes.clear();
   m_treeCompactNodes.clear();
