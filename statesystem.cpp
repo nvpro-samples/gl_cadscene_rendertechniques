@@ -28,7 +28,7 @@
 /* Contact ckubisch@nvidia.com (Christoph Kubisch) for feedback */
 
 #include "statesystem.hpp"
-
+#include <string.h> // memcmp
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -739,7 +739,7 @@ const StateSystem::State& StateSystem::get( StateID id ) const
   return m_states[id].state;
 }
 
-__forceinline int StateSystem::prepareTransitionCache(StateID prev, StateInternal& to )
+int inline StateSystem::prepareTransitionCache(StateID prev, StateInternal& to )
 {
   StateInternal& from = m_states[prev];
 

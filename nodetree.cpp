@@ -59,7 +59,7 @@ const NodeTree::Level* NodeTree::getUsedLevel( int level ) const
   if (0 <= level && level < m_levelsUsed){
     return &m_levels[level];
   }
-  return NULL;
+  return nullptr;
 }
 
 unsigned int NodeTree::getTreeParentChangeID() const

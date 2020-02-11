@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <cstddef>
 
 #define USE_CACHECOMBINE  1
 
