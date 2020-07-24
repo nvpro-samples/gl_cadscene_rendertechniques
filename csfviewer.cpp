@@ -484,7 +484,7 @@ namespace csfviewer
     m_renderer = NULL;
     m_stateChangeID = 0;
 
-    ImGuiH::Init(m_windowState.m_viewSize[0], m_windowState.m_viewSize[1], this);
+    ImGuiH::Init(m_windowState.m_winSize[0], m_windowState.m_winSize[1], this);
     ImGui::InitGL();
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -506,7 +506,7 @@ namespace csfviewer
 
     validated = validated && initProgram();
     validated = validated && initScene(m_modelFilename.c_str(), 0, 3);
-    validated = validated && initFramebuffers(m_windowState.m_viewSize[0],m_windowState.m_viewSize[1]);
+    validated = validated && initFramebuffers(m_windowState.m_winSize[0],m_windowState.m_winSize[1]);
 
     
     const Renderer::Registry registry = Renderer::getRegistry();
@@ -579,8 +579,8 @@ namespace csfviewer
 
   void Sample::processUI(double time)
   {
-    int width = m_windowState.m_viewSize[0];
-    int height = m_windowState.m_viewSize[1];
+    int width = m_windowState.m_winSize[0];
+    int height = m_windowState.m_winSize[1];
 
     // Update imgui configuration
     auto &imgui_io = ImGui::GetIO();
@@ -646,7 +646,7 @@ namespace csfviewer
 
     processUI(time);
 
-    m_control.processActions(m_windowState.m_viewSize,
+    m_control.processActions(m_windowState.m_winSize,
       nvmath::vec2f(m_windowState.m_mouseCurrent[0],m_windowState.m_mouseCurrent[1]),
       m_windowState.m_mouseButtonFlags, m_windowState.m_mouseWheel);
 
@@ -657,7 +657,7 @@ namespace csfviewer
     }
 
     if (m_tweak.msaa != m_lastTweak.msaa){
-      initFramebuffers(m_windowState.m_viewSize[0],m_windowState.m_viewSize[1]);
+      initFramebuffers(m_windowState.m_winSize[0],m_windowState.m_winSize[1]);
     }
 
     if (m_tweak.clones    != m_lastTweak.clones ||
@@ -686,8 +686,8 @@ namespace csfviewer
     
     m_lastTweak = m_tweak;
 
-    int width   = m_windowState.m_viewSize[0];
-    int height  = m_windowState.m_viewSize[1];
+    int width   = m_windowState.m_winSize[0];
+    int height  = m_windowState.m_winSize[1];
 
     {
       // generic state setup
