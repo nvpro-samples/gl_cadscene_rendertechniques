@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,27 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * SPDX-FileCopyrightText: Copyright (c) 2014-2021 NVIDIA CORPORATION
+ * SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
 
+#define CSF_IMPLEMENTATION
+#define CSF_SUPPORT_GLTF2       1
+#define CSF_SUPPORT_FILEMAPPING 1
 
-#version 430
-/**/
+#include <fileformats/cadscenefile.h>
 
-layout(early_fragment_tests) in;
+#define CGLTF_IMPLEMENTATION
+#include <cgltf.h>
 
-layout(std430,binding=0) buffer visibleBuffer {
-  int visibles[];
-};
 
-layout(location=0,index=0) out vec4 out_Color;
 
-flat in int objid;
-
-void main (){
-  visibles[objid] = 1;
-  
-  out_Color = unpackUnorm4x8(uint(objid));
-}
