@@ -113,8 +113,9 @@ bool CadScene::loadCSF( const char* filename, int clones, int cloneaxis)
         vertices[i].normal[2] = csfgeom->normal[3*i + 2];
         vertices[i].normal[3] = 0.0f;
       }
-      else{
-        vertices[i].normal = normalize(nvmath::vec3f(vertices[i].position));
+      else
+      {
+        vertices[i].normal = nvmath::vec4f(normalize(nvmath::vec3f(vertices[i].position)), 0.0f);
       }
       
       
