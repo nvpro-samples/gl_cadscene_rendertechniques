@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ namespace csfviewer
     m_bindlessVboUbo = bindlessVbo && bindlessUbo;
     m_hwsupport = hasNativeCommandList() && !m_emulate;
 
-    for (int i = 0; i < NUM_STATES; i++){
+    for (int i = 0; i < NUM_SHADES; i++){
       m_tokenAddresses[i] = 0;
     }
 
@@ -83,8 +83,8 @@ namespace csfviewer
     nvtokenGetStats(&m_tokenStreams[shadeType][sc.offsets[0]], size, stats);
 
     LOGI("type: %s\n",toString(shadeType));
-    LOGI("commandsize: %d\n",size);
-    LOGI("state toggles: %d\n", num);
+    LOGI("commandsize: %zu\n",size);
+    LOGI("state toggles: %zu\n", num);
     LOGI("tokens:\n");
     for (int i = 0; i < NVTOKEN_TYPES; i++){
       const char* what = nvtokenCommandToString(i);
