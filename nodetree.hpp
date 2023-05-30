@@ -30,15 +30,19 @@ public:
     INVALID = 0xFFFFFFFF,
     ROOT = 0x7FFFFFFF,
     LEVELBITS = 8,
+    PARENTBITS = 32 - LEVELBITS
   };
+
+  static constexpr unsigned INVALID_LEVEL = (1 << LEVELBITS) - 1;
+  static constexpr unsigned INVALID_PARENT = (1 << PARENTBITS) - 1;
 
   struct compactID {
     unsigned level : LEVELBITS;
-    unsigned parent : (32-LEVELBITS);
+    unsigned parent : PARENTBITS;
 
     compactID(){
-      level = INVALID;
-      parent = INVALID;
+      level = INVALID_LEVEL;
+      parent = INVALID_PARENT;
     }
   };
   typedef unsigned int nodeID;
@@ -73,11 +77,11 @@ private:
   std::vector<nodeID>               m_unusedNodes;
 
   // actual nodes added to tree
-  unsigned int                      m_treeCompactChangeID;
   std::vector<compactID>            m_treeCompactNodes;
+  std::vector<Level>                m_levels;
+  unsigned int                      m_treeCompactChangeID;
   int                               m_nodesActive;
   int                               m_levelsUsed;
-  std::vector<Level>                m_levels;
 
 public:
   NodeTree();
