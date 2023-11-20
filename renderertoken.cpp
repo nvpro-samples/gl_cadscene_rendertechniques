@@ -22,8 +22,6 @@
 
 #include "tokenbase.hpp"
 
-#include <nvmath/nvmath_glsltypes.h>
-
 #include "common.h"
 
 namespace csfviewer

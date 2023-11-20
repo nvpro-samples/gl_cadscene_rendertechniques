@@ -39,7 +39,7 @@
 #ifdef __cplusplus
 namespace csfviewer
 {
-  using namespace nvmath;
+  using namespace glm;
 #endif
 
 struct SceneData {

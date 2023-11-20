@@ -24,8 +24,6 @@
 #include <algorithm>
 #include "renderer.hpp"
 
-#include <nvmath/nvmath_glsltypes.h>
-
 #include "common.h"
 
 #define USE_VERTEX_ASSIGNS  (!USE_BASEINSTANCE)

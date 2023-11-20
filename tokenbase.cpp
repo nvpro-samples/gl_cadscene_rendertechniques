@@ -23,8 +23,6 @@
 
 using namespace nvtoken;
 
-#include <nvmath/nvmath_glsltypes.h>
-
 #include "common.h"
 
 namespace csfviewer

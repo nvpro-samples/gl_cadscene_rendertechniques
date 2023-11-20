@@ -27,7 +27,6 @@
 #include <imgui/imgui_helper.h>
 
 #include <nvgl/glsltypes_gl.hpp>
-#include <nvmath/nvmath_glsltypes.h>
 
 #include <nvh/cameracontrol.hpp>
 #include <nvh/fileoperations.hpp>
@@ -47,6 +46,8 @@
 #include <algorithm>
 
 #include "common.h"
+#include "glm/gtc/matrix_access.hpp"
+#include "glm/gtc/type_ptr.hpp"
 
 
 namespace csfviewer {
@@ -559,10 +560,10 @@ bool Sample::begin()
   }
 
 
-  m_control.m_sceneOrbit     = nvmath::vec3f(m_scene.m_bbox.max + m_scene.m_bbox.min) * 0.5f;
-  m_control.m_sceneDimension = nvmath::length((m_scene.m_bbox.max - m_scene.m_bbox.min));
+  m_control.m_sceneOrbit     = glm::vec3(m_scene.m_bbox.max + m_scene.m_bbox.min) * 0.5f;
+  m_control.m_sceneDimension = glm::length((m_scene.m_bbox.max - m_scene.m_bbox.min));
   m_control.m_viewMatrix =
-      nvmath::look_at(m_control.m_sceneOrbit - (-vec3(1, 1, 1) * m_control.m_sceneDimension * 0.5f * (float(m_tweak.zoom) / 100.0f)),
+      glm::lookAt(m_control.m_sceneOrbit - (-vec3(1, 1, 1) * m_control.m_sceneDimension * 0.5f * (float(m_tweak.zoom) / 100.0f)),
                       m_control.m_sceneOrbit, vec3(0, 1, 0));
 
   m_sceneUbo.wLightPos   = (m_scene.m_bbox.max + m_scene.m_bbox.min) * 0.5f + m_control.m_sceneDimension;
@@ -660,8 +661,8 @@ void Sample::think(double time)
 
   processUI(time);
 
-  m_control.processActions(m_windowState.m_winSize,
-                           nvmath::vec2f(m_windowState.m_mouseCurrent[0], m_windowState.m_mouseCurrent[1]),
+  m_control.processActions({m_windowState.m_winSize[0], m_windowState.m_winSize[1]},
+                           glm::vec2(m_windowState.m_mouseCurrent[0], m_windowState.m_mouseCurrent[1]),
                            m_windowState.m_mouseButtonFlags, m_windowState.m_mouseWheel);
 
   if(m_windowState.onPress(KEY_R))
@@ -722,18 +723,18 @@ void Sample::think(double time)
 
     m_sceneUbo.viewport = ivec2(width, height);
 
-    nvmath::mat4 projection = nvmath::perspective((45.f), float(width) / float(height),
+    glm::mat4 projection = glm::perspectiveRH_ZO((45.f), float(width) / float(height),
                                                   m_control.m_sceneDimension * 0.001f, m_control.m_sceneDimension * 10.0f);
-    nvmath::mat4 view       = m_control.m_viewMatrix;
+    glm::mat4 view       = m_control.m_viewMatrix;
 
     m_sceneUbo.viewProjMatrix = projection * view;
     m_sceneUbo.viewMatrix     = view;
-    m_sceneUbo.viewMatrixIT   = nvmath::transpose(nvmath::invert(view));
+    m_sceneUbo.viewMatrixIT   = glm::transpose(glm::inverse(view));
 
-    m_sceneUbo.viewPos = m_sceneUbo.viewMatrixIT.row(3);
-    m_sceneUbo.viewDir = -view.row(2);
+    m_sceneUbo.viewPos = glm::row(m_sceneUbo.viewMatrixIT, 3);
+    m_sceneUbo.viewDir = -glm::row(view,2);
 
-    m_sceneUbo.wLightPos   = m_sceneUbo.viewMatrixIT.row(3);
+    m_sceneUbo.wLightPos   = glm::row(m_sceneUbo.viewMatrixIT, 3);
     m_sceneUbo.wLightPos.w = 1.0;
 
     m_sceneUbo.tboMatrices = uvec2(m_scene.m_matricesTexGLADDR & 0xFFFFFFFF, m_scene.m_matricesTexGLADDR >> 32);
@@ -793,9 +794,9 @@ void Sample::think(double time)
   {
     NV_PROFILE_GL_SECTION("Render");
 
-    m_resources.cullView.viewPos        = m_sceneUbo.viewPos.get_value();
-    m_resources.cullView.viewDir        = m_sceneUbo.viewDir.get_value();
-    m_resources.cullView.viewProjMatrix = m_sceneUbo.viewProjMatrix.get_value();
+    m_resources.cullView.viewPos        = glm::value_ptr(m_sceneUbo.viewPos);
+    m_resources.cullView.viewDir        = glm::value_ptr(m_sceneUbo.viewDir);
+    m_resources.cullView.viewProjMatrix = glm::value_ptr(m_sceneUbo.viewProjMatrix);
 
     m_renderer->draw(m_tweak.shade, m_resources, m_profiler, m_progManager);
   }
